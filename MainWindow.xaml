@@ -1,0 +1,443 @@
+<Window x:Class="ABeNT.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ABeNT"
+        mc:Ignorable="d"
+        Title="ABeNT" Height="700" Width="1400"
+        MinHeight="600" MinWidth="1000">
+    <Window.Resources>
+        <!-- Styles für einheitliches Design -->
+        <Style x:Key="ControlButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="MinHeight" Value="28"/>
+        </Style>
+        
+        <Style x:Key="RecordButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="30,20"/>
+            <Setter Property="Margin" Value="10"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="MinHeight" Value="70"/>
+            <Setter Property="MinWidth" Value="200"/>
+        </Style>
+        
+        <Style x:Key="StopButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="20,12"/>
+            <Setter Property="Margin" Value="10"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinHeight" Value="50"/>
+        </Style>
+        
+        <Style x:Key="NoteActionButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="5,2"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="MinHeight" Value="32"/>
+        </Style>
+        
+        <Style x:Key="ComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Margin" Value="5,5"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="MinWidth" Value="200"/>
+            <Setter Property="MinHeight" Value="28"/>
+        </Style>
+        
+        <Style x:Key="CheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="Margin" Value="5,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+    
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="350" MinWidth="300"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="300" MinWidth="250"/>
+        </Grid.ColumnDefinitions>
+        
+        <!-- Links: Steuerung und Aktion -->
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Bereich Steuerung (Links oben) -->
+            <Border Grid.Row="0" 
+                    Background="#F5F5F5" 
+                    BorderBrush="#E0E0E0" 
+                    BorderThickness="0,0,1,1"
+                    Padding="15,15">
+                <StackPanel>
+                    <!-- Fachrichtung / Berichtsformular -->
+                    <TextBlock Text="Berichtsformular (Fachrichtung):" 
+                               FontSize="13" 
+                               FontWeight="SemiBold" 
+                               Margin="5,0,5,5"/>
+                    <ComboBox x:Name="CmbSubjectForm" 
+                              Style="{StaticResource ComboBoxStyle}"
+                              DisplayMemberPath="DisplayName"
+                              HorizontalAlignment="Stretch"/>
+                    <StackPanel Orientation="Horizontal" Margin="5,4,5,0" Cursor="Hand" MouseDown="BtnManageForms_Click">
+                        <TextBlock Text="&#x2699;" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Berichtsformulare verwalten" TextDecorations="Underline" FontSize="12" Foreground="#0066CC" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <!-- Bericht erstellen mit: Anamnese (immer), Befund, Therapie, ICD-10 -->
+                    <TextBlock Text="Bericht erstellen mit:" 
+                               FontSize="13" 
+                               FontWeight="SemiBold" 
+                               Margin="5,10,5,5"/>
+                    <CheckBox x:Name="ChkAnamnese" 
+                              Content="Anamnese" 
+                              Style="{StaticResource CheckBoxStyle}"
+                              IsChecked="True" IsEnabled="False"/>
+                    <CheckBox x:Name="ChkBefund" 
+                              Content="Befund" 
+                              Style="{StaticResource CheckBoxStyle}"
+                              Checked="ChkReportSection_Changed" Unchecked="ChkReportSection_Changed"/>
+                    <CheckBox x:Name="ChkTherapie" 
+                              Content="Therapie" 
+                              Style="{StaticResource CheckBoxStyle}"
+                              Checked="ChkReportSection_Changed" Unchecked="ChkReportSection_Changed"/>
+                    <CheckBox x:Name="ChkIcd10" 
+                              Content="Diagnosen nach ICD-10" 
+                              Style="{StaticResource CheckBoxStyle}"
+                              Checked="ChkReportSection_Changed" Unchecked="ChkReportSection_Changed"/>
+                    
+                    <!-- Geschlecht -->
+                    <TextBlock Text="Geschlecht:" 
+                               FontSize="13" 
+                               FontWeight="SemiBold" 
+                               Margin="5,5,5,5"/>
+                    <ComboBox x:Name="CmbGender" 
+                              Style="{StaticResource ComboBoxStyle}">
+                        <ComboBoxItem Content="Neutral" IsSelected="True"/>
+                        <ComboBoxItem Content="Männlich"/>
+                        <ComboBoxItem Content="Weiblich"/>
+                    </ComboBox>
+                </StackPanel>
+            </Border>
+            
+            <!-- Bereich Aktion: Recorder öffnen + Einstellungen -->
+            <Border Grid.Row="1" 
+                    Background="#FAFAFA" 
+                    BorderBrush="#E0E0E0" 
+                    BorderThickness="0,0,1,0"
+                    Padding="20,20">
+                <StackPanel VerticalAlignment="Center">
+                    <Button x:Name="BtnOpenRecorder" 
+                            Content="Rekorder öffnen" 
+                            Style="{StaticResource RecordButtonStyle}"
+                            Background="#D13438" 
+                            Foreground="White"
+                            HorizontalAlignment="Stretch"
+                            Click="BtnOpenRecorder_Click"/>
+                    <Button x:Name="BtnSettings" 
+                            Content="Einstellungen / API Keys" 
+                            Style="{StaticResource ControlButtonStyle}"
+                            HorizontalAlignment="Stretch"
+                            Margin="5,5,5,5"
+                            Click="BtnSettings_Click"/>
+                    <TextBlock x:Name="TxtKeyStatus" 
+                               FontSize="11" Foreground="#666666" Margin="5,8,5,0"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- Platzhalter (ehemals Technische Einstellungen) -->
+            <Border Grid.Row="2" 
+                    Background="#F5F5F5" 
+                    BorderBrush="#E0E0E0" 
+                    BorderThickness="0,1,1,0"
+                    Padding="15,15">
+                <TextBlock Text="Mikrofon und Aufnahme im Aufnahme-Fenster."
+                           FontSize="12" Foreground="#666666" TextWrapping="Wrap"/>
+            </Border>
+        </Grid>
+        
+        <!-- Mitte: Ergebnis -->
+        <Border Grid.Column="1" 
+                BorderBrush="#E0E0E0" 
+                BorderThickness="0,0,1,0"
+                Padding="20">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <TextBlock Text="Letzter Bericht" 
+                           FontSize="16" 
+                           FontWeight="SemiBold" 
+                           Margin="0,0,0,15"
+                           Grid.Row="0"/>
+                
+                <ScrollViewer Grid.Row="1"
+                              VerticalScrollBarVisibility="Visible" 
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="SpResultCards" Margin="0,0,10,0">
+                        <!-- Karte: Anamnese -->
+                        <Border Background="White" 
+                                BorderBrush="#CCCCCC" 
+                                BorderThickness="1" 
+                                CornerRadius="4"
+                                Padding="0"
+                                Margin="0,0,0,15">
+                            <StackPanel>
+                                <Border Background="#F5F5F5" 
+                                        BorderBrush="#CCCCCC" 
+                                        BorderThickness="0,0,0,1"
+                                        Padding="15,10">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid Grid.Row="0">
+                                            <TextBlock Text="Anamnese" 
+                                                       FontSize="14" 
+                                                       FontWeight="SemiBold" 
+                                                       VerticalAlignment="Center"/>
+                                            <Button x:Name="BtnCopyA" 
+                                                    Content="Kopieren" 
+                                                    HorizontalAlignment="Right"
+                                                    Padding="10,5"
+                                                    FontSize="12"
+                                                    Click="BtnCopyA_Click"/>
+                                        </Grid>
+                                        <CheckBox x:Name="ChkErstanamnese" 
+                                                  Grid.Row="1"
+                                                  Content="ausführliche Erstanamnese" 
+                                                  IsEnabled="False"
+                                                  IsChecked="False"
+                                                  Margin="0,6,0,0"
+                                                  FontSize="12"
+                                                  Checked="ChkErstanamnese_Changed"
+                                                  Unchecked="ChkErstanamnese_Changed"/>
+                                    </Grid>
+                                </Border>
+                                <TextBox x:Name="TxtAnamnese" 
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         BorderThickness="0"
+                                         FontFamily="Segoe UI"
+                                         FontSize="14"
+                                         Padding="15"
+                                         Background="White"
+                                         Text=""
+                                         MinHeight="80"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Karte: Befund -->
+                        <Border Background="White" 
+                                BorderBrush="#CCCCCC" 
+                                BorderThickness="1" 
+                                CornerRadius="4"
+                                Padding="0"
+                                Margin="0,0,0,15">
+                            <StackPanel>
+                                <Border Background="#F5F5F5" 
+                                        BorderBrush="#CCCCCC" 
+                                        BorderThickness="0,0,0,1"
+                                        Padding="15,10">
+                                    <Grid>
+                                        <TextBlock Text="Befund" 
+                                                   FontSize="14" 
+                                                   FontWeight="SemiBold" 
+                                                   VerticalAlignment="Center"/>
+                                        <Button x:Name="BtnCopyBe" 
+                                                Content="Kopieren" 
+                                                HorizontalAlignment="Right"
+                                                Padding="10,5"
+                                                FontSize="12"
+                                                Click="BtnCopyBe_Click"/>
+                                    </Grid>
+                                </Border>
+                                <TextBox x:Name="TxtBefund" 
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         BorderThickness="0"
+                                         FontFamily="Segoe UI"
+                                         FontSize="14"
+                                         Padding="15"
+                                         Background="White"
+                                         Text=""
+                                         MinHeight="80"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Karte: Diagnosen -->
+                        <Border Background="White" 
+                                BorderBrush="#CCCCCC" 
+                                BorderThickness="1" 
+                                CornerRadius="4"
+                                Padding="0"
+                                Margin="0,0,0,15">
+                            <StackPanel>
+                                <Border Background="#F5F5F5" 
+                                        BorderBrush="#CCCCCC" 
+                                        BorderThickness="0,0,0,1"
+                                        Padding="15,10">
+                                    <Grid>
+                                        <TextBlock Text="Diagnosen" 
+                                                   FontSize="14" 
+                                                   FontWeight="SemiBold" 
+                                                   VerticalAlignment="Center"/>
+                                        <Button x:Name="BtnCopyN" 
+                                                Content="Kopieren" 
+                                                HorizontalAlignment="Right"
+                                                Padding="10,5"
+                                                FontSize="12"
+                                                Click="BtnCopyN_Click"/>
+                                    </Grid>
+                                </Border>
+                                <TextBox x:Name="TxtDiagnose" 
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         BorderThickness="0"
+                                         FontFamily="Segoe UI"
+                                         FontSize="14"
+                                         Padding="15"
+                                         Background="White"
+                                         Text=""
+                                         MinHeight="80"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Karte: Therapie -->
+                        <Border Background="White" 
+                                BorderBrush="#CCCCCC" 
+                                BorderThickness="1" 
+                                CornerRadius="4"
+                                Padding="0"
+                                Margin="0,0,0,15">
+                            <StackPanel>
+                                <Border Background="#F5F5F5" 
+                                        BorderBrush="#CCCCCC" 
+                                        BorderThickness="0,0,0,1"
+                                        Padding="15,10">
+                                    <Grid>
+                                        <TextBlock Text="Therapie" 
+                                                   FontSize="14" 
+                                                   FontWeight="SemiBold" 
+                                                   VerticalAlignment="Center"/>
+                                        <Button x:Name="BtnCopyT" 
+                                                Content="Kopieren" 
+                                                HorizontalAlignment="Right"
+                                                Padding="10,5"
+                                                FontSize="12"
+                                                Click="BtnCopyT_Click"/>
+                                    </Grid>
+                                </Border>
+                                <TextBox x:Name="TxtTherapie" 
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         BorderThickness="0"
+                                         FontFamily="Segoe UI"
+                                         FontSize="14"
+                                         Padding="15"
+                                         Background="White"
+                                         Text=""
+                                         MinHeight="80"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Karte: ICD-10 & Sonstiges (nur sichtbar wenn Inhalt vorhanden) -->
+                        <Border x:Name="BorderIcd" 
+                                Background="White" 
+                                BorderBrush="#CCCCCC" 
+                                BorderThickness="1" 
+                                CornerRadius="4"
+                                Padding="0"
+                                Visibility="Collapsed">
+                            <StackPanel>
+                                <Border Background="#F5F5F5" 
+                                        BorderBrush="#CCCCCC" 
+                                        BorderThickness="0,0,0,1"
+                                        Padding="15,10">
+                                    <Grid>
+                                        <TextBlock Text="ICD-10 &amp; Sonstiges" 
+                                                   FontSize="14" 
+                                                   FontWeight="SemiBold" 
+                                                   VerticalAlignment="Center"/>
+                                        <Button x:Name="BtnCopyIcd" 
+                                                Content="Kopieren" 
+                                                HorizontalAlignment="Right"
+                                                Padding="10,5"
+                                                FontSize="12"
+                                                Click="BtnCopyIcd_Click"/>
+                                    </Grid>
+                                </Border>
+                                <TextBox x:Name="TxtIcd" 
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         BorderThickness="0"
+                                         FontFamily="Segoe UI"
+                                         FontSize="14"
+                                         Padding="15"
+                                         Background="White"
+                                         Text=""
+                                         MinHeight="80"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+        
+        <!-- Rechts: Letzte Notizen -->
+        <Border Grid.Column="2" 
+                Background="#FAFAFA" 
+                BorderBrush="#E0E0E0" 
+                BorderThickness="0,0,0,0"
+                Padding="15">
+            <StackPanel>
+                <TextBlock Text="Frühere Dokumentationen" 
+                           FontSize="16" 
+                           FontWeight="SemiBold" 
+                           Margin="0,0,0,10"/>
+                
+                <ListBox x:Name="LstNotes" 
+                         SelectionChanged="LstNotes_SelectionChanged"
+                         Margin="0,0,0,10"/>
+                
+                <StackPanel>
+                    <Button x:Name="BtnCopyNote" 
+                            Content="Kopieren" 
+                            Style="{StaticResource NoteActionButtonStyle}"
+                            IsEnabled="False"
+                            HorizontalAlignment="Stretch"
+                            Click="BtnCopyNote_Click"/>
+                    
+                    <Button x:Name="BtnExportNote" 
+                            Content="Export TXT" 
+                            Style="{StaticResource NoteActionButtonStyle}"
+                            IsEnabled="False"
+                            HorizontalAlignment="Stretch"
+                            Click="BtnExportNote_Click"/>
+                    
+                    <Button x:Name="BtnDeleteNote" 
+                            Content="Löschen" 
+                            Style="{StaticResource NoteActionButtonStyle}"
+                            IsEnabled="False"
+                            HorizontalAlignment="Stretch"
+                            Click="BtnDeleteNote_Click"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

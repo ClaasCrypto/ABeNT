@@ -1,0 +1,21 @@
+# Build
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.rsuser
+
+# Cursor
+.cursor/
+
+# Logs
+*.log
+
+# OS / editor
+Thumbs.db
+.DS_Store
+*.swp
+*~

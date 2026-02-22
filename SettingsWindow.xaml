@@ -1,0 +1,77 @@
+<Window x:Class="ABeNT.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Einstellungen - API Keys" Height="320" Width="500"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Deepgram API Key (essentiell) -->
+        <TextBlock Grid.Row="0" 
+                   Text="Deepgram API Key (essentiell):" 
+                   FontSize="13" 
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,5"/>
+        <TextBox x:Name="TxtDeepgramKey" 
+                 Grid.Row="1"
+                 Margin="0,0,0,15"
+                 FontSize="12"
+                 Padding="8,6"/>
+        
+        <!-- LLM wählen -->
+        <TextBlock Grid.Row="2" 
+                   Text="LLM wählen:" 
+                   FontSize="13" 
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,5"/>
+        <ComboBox x:Name="CmbLlm" Grid.Row="3"
+                  Padding="8,6" Margin="0,0,0,5"
+                  MinHeight="28" SelectionChanged="CmbLlm_SelectionChanged">
+            <ComboBoxItem Content="ChatGPT (OpenAI)"/>
+            <ComboBoxItem Content="Gemini (Google)"/>
+            <ComboBoxItem Content="Claude (Anthropic)" IsSelected="True"/>
+        </ComboBox>
+        
+        <!-- API Key für gewähltes LLM -->
+        <TextBlock x:Name="TxtLlmKeyLabel" Grid.Row="4" 
+                   Text="Anthropic Claude API Key:" 
+                   FontSize="13" 
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,5"/>
+        <TextBox x:Name="TxtLlmKey" 
+                 Grid.Row="5"
+                 Margin="0,0,0,15"
+                 FontSize="12"
+                 Padding="8,6"/>
+        
+        <!-- Buttons -->
+        <StackPanel Grid.Row="6" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right">
+            <Button x:Name="BtnSave" 
+                    Content="Speichern" 
+                    Width="100" 
+                    Height="30"
+                    Margin="5,0"
+                    Click="BtnSave_Click"/>
+            <Button x:Name="BtnCancel" 
+                    Content="Abbrechen" 
+                    Width="100" 
+                    Height="30"
+                    Margin="5,0"
+                    Click="BtnCancel_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
