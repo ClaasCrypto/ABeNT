@@ -167,6 +167,22 @@ namespace ABeNT.Services
             throw new Exception($"Keines der Claude-Modelle funktioniert. Letzter Fehler: {lastException?.Message}");
         }
 
+        /// <summary>Send a raw system+user prompt to the selected LLM and return the response text.</summary>
+        public async Task<string> GenerateRawAsync(
+            string systemPrompt, string userMessage, string llmProvider, string apiKey,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(apiKey))
+                throw new ArgumentException($"API Key für {llmProvider} ist erforderlich.");
+
+            return llmProvider switch
+            {
+                "ChatGPT" => await CallOpenAiAsync(systemPrompt, userMessage, apiKey, cancellationToken),
+                "Gemini" => await CallGeminiAsync(systemPrompt, userMessage, apiKey, cancellationToken),
+                _ => await CallClaudeAsync(systemPrompt, userMessage, apiKey, cancellationToken)
+            };
+        }
+
         private static string BuildSystemPrompt(string gender, bool includeBefund, bool includeTherapie, bool includeIcd10, string recordingMode = "Neupatient")
         {
             return OutputFormsService.BuildSystemPromptFromConfig(null, gender, includeBefund, includeTherapie, includeIcd10, recordingMode);

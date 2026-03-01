@@ -175,8 +175,7 @@ namespace ABeNT.Services
                 if (form == null) return null;
                 if (string.IsNullOrWhiteSpace(form.Id))
                     form.Id = id.Trim();
-                // Migration: Alte Prompts in Standardformularen durch neue Fach-Module ersetzen
-                if (IsStandardForm(id) && IsOldPromptVersion(form.SectionPrompts?.A))
+                if (IsStandardForm(id) && NeedsMigration(form.SectionPrompts))
                 {
                     var updated = GetDefaultFormById(id);
                     if (updated != null)
@@ -193,13 +192,18 @@ namespace ABeNT.Services
             }
         }
 
-        /// <summary>Erkennt alte Prompt-Versionen, die durch die neuen Fach-Module ersetzt werden sollen.</summary>
-        private static bool IsOldPromptVersion(string? a)
+        private static bool NeedsMigration(AbentSectionPrompts? p)
         {
-            if (string.IsNullOrWhiteSpace(a)) return false;
-            if (a.Contains("FACH-MODUL ANAMNESE:", StringComparison.Ordinal))
-                return false;
-            return true;
+            if (p == null) return false;
+            return IsVerbosePrompt(p.A) || IsVerbosePrompt(p.Be);
+        }
+
+        private static bool IsVerbosePrompt(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            return text.Contains("Erstelle aus dem Transkript die Anamnese im Nominalstil", StringComparison.Ordinal)
+                || text.Contains("Erstelle aus dem Transkript den klinischen Untersuchungsbefund", StringComparison.Ordinal)
+                || text.Contains("Erstelle aus dem Transkript den neurologischen Untersuchungsbefund", StringComparison.Ordinal);
         }
 
         private static SubjectForm? GetDefaultFormById(string id)
@@ -408,202 +412,109 @@ namespace ABeNT.Services
         {
             return @"FACH-MODUL ANAMNESE: ALLGEMEINMEDIZIN
 
-Erstelle aus dem Transkript die Anamnese im Nominalstil oder in kurzen, objektiven Sätzen. Vergiss kein medizinisches Detail, lasse aber Smalltalk und irrelevante Gesprächsanteile rigoros weg.
-
-Formatierung: Schreibe jede Unterkategorie als eigene Überschriftszeile, darunter den Inhalt als Fließtext oder kommagetrennte Aufzählung. Trenne Unterkategorien durch eine Leerzeile.
-
 Jetziges Leiden:
-Beginne mit dem Vorstellungsgrund. Fasse die aktuelle Symptomatik zusammen: Lokalisation, Charakter, Dauer, Auslöser, zeitlicher Verlauf, Begleitsymptome. Erwähne bisherige Selbstmedikation oder Akutbehandlungen, die dieses Ereignis betreffen.
+Vorstellungsgrund, aktuelle Symptomatik: Lokalisation, Charakter, Dauer, Auslöser, zeitlicher Verlauf, Begleitsymptome. Bisherige Selbstmedikation oder Akutbehandlungen.
 
-Vorerkrankungen / Spezielle Anamnese:
-Alle genannten chronischen Erkrankungen, relevante Vordiagnosen, Operationen, Krankenhausaufenthalte, kommagetrennt.
-Fachspezifische Ergänzung: Impfstatus, Vorsorgeuntersuchungen, familiäre Belastung (kardiovaskulär, Diabetes, Tumorerkrankungen) sofern erwähnt.
-Fallback: ""Keine relevanten Vorerkrankungen eruierbar.""
+Vorerkrankungen:
+Ergänze: Impfstatus, Vorsorgeuntersuchungen, familiäre Belastung (kardiovaskulär, Diabetes, Tumorerkrankungen) sofern erwähnt.
 
 Dauermedikation:
-Jedes Medikament in eine neue Zeile. Format: Name Dosierung Einnahmeschema (z.B. Metformin 1000 mg 1-0-1).
-Fallback: ""Aktuell keine regelmäßige Medikamenteneinnahme bekannt.""
-
-Allergien / Unverträglichkeiten:
-Auslöser und Reaktionstyp sofern genannt (z.B. Penicillin - Exanthem).
-Fallback: ""Keine Allergien oder Unverträglichkeiten bekannt.""
+Format: Name Dosierung Einnahmeschema (z.B. Metformin 1000 mg 1-0-1).
 
 Vegetative Anamnese:
 B-Symptomatik (Fieber, Nachtschweiß, ungewollter Gewichtsverlust), Appetit, Schlaf, Miktion, Stuhlgang.
-Fallback: ""Vegetative Anamnese im Gespräch nicht erhoben.""
 
 Noxen / Sozialanamnese:
-Nikotinkonsum (pack years sofern quantifizierbar), Alkoholkonsum, Drogenkonsum, Beruf, häusliche Situation, Pflegebedarf.
-Fallback: ""Noxenanamnese nicht erhoben. Sozialanamnese unauffällig.""";
+Nikotinkonsum (pack years sofern quantifizierbar), Alkoholkonsum, Drogenkonsum, Beruf, häusliche Situation, Pflegebedarf.";
         }
 
         private static string GetDefaultAnamnesePromptOR()
         {
             return @"FACH-MODUL ANAMNESE: ORTHOPÄDIE
 
-Erstelle aus dem Transkript die Anamnese im Nominalstil oder in kurzen, objektiven Sätzen. Vergiss kein medizinisches Detail (Schmerzcharakter, Ausstrahlung, Vorbehandlungen, Dauer), lasse aber Smalltalk und irrelevante Gesprächsanteile rigoros weg.
-
-Formatierung: Schreibe jede Unterkategorie als eigene Überschriftszeile, darunter den Inhalt als Fließtext oder kommagetrennte Aufzählung. Trenne Unterkategorien durch eine Leerzeile.
-
 Jetziges Leiden:
-Beginne mit dem Vorstellungsgrund (z.B. ""Vorstellung aufgrund persistierender Gonalgie re.""). Fasse zusammen: Schmerzlokalisation, Seitenangabe, Ausstrahlung, Schmerzcharakter (stechend, ziehend, dumpf, brennend), Auslöser (Trauma, Belastung, spontan), Dauer, tageszeitliche Dynamik, belastungsabhängige Komponente, Einschränkungen im Alltag. Erwähne akutbezogene Vorbehandlungen (z.B. Z.n. frustraner Infiltrationstherapie alio loco, bisherige Analgesie, Physiotherapie).
+Schmerzlokalisation, Seitenangabe, Ausstrahlung, Schmerzcharakter (stechend, ziehend, dumpf, brennend), Auslöser (Trauma, Belastung, spontan), Dauer, tageszeitliche Dynamik, belastungsabhängige Komponente, Einschränkungen im Alltag. Akutbezogene Vorbehandlungen (Infiltration, Analgesie, Physiotherapie).
 
-Vorerkrankungen / Spezielle Anamnese:
-Orthopädische Voroperationen, Frakturen, bekannte degenerative Veränderungen, rheumatologische Grunderkrankungen, sonstige relevante Begleitdiagnosen, kommagetrennt.
-Fallback: ""Keine relevanten Vorerkrankungen eruierbar.""
+Vorerkrankungen:
+Orthopädische Voroperationen, Frakturen, degenerative Veränderungen, rheumatologische Grunderkrankungen.
 
 Dauermedikation:
-Jedes Medikament in eine neue Zeile. Format: Name Dosierung Einnahmeschema (z.B. Ibuprofen 600 mg 1-0-1).
-Fallback: ""Aktuell keine regelmäßige Medikamenteneinnahme bekannt.""
-
-Allergien / Unverträglichkeiten:
-Auslöser und Reaktionstyp sofern genannt.
-Fallback: ""Keine Allergien oder Unverträglichkeiten bekannt.""
+Format: Name Dosierung Einnahmeschema (z.B. Ibuprofen 600 mg 1-0-1).
 
 Vegetative Anamnese:
-Schlafstörungen durch Schmerzen, Gewichtsveränderung, B-Symptomatik sofern erwähnt.
-Fallback: ""Vegetative Anamnese im Gespräch nicht erhoben.""
+Schlafstörungen durch Schmerzen, Gewichtsveränderung, B-Symptomatik.
 
 Noxen / Sozialanamnese:
-Nikotinkonsum, Alkohol, Beruf (insbesondere körperliche Belastung, Überkopfarbeit, sitzende Tätigkeit), sportliche Aktivität, Hilfsmittelbedarf.
-Fallback: ""Noxenanamnese nicht erhoben. Sozialanamnese unauffällig.""";
+Beruf (körperliche Belastung, Überkopfarbeit, sitzende Tätigkeit), sportliche Aktivität, Hilfsmittelbedarf.";
         }
 
         private static string GetDefaultAnamnesePromptNE()
         {
             return @"FACH-MODUL ANAMNESE: NEUROLOGIE
 
-Erstelle aus dem Transkript die Anamnese im Nominalstil oder in kurzen, objektiven Sätzen. Vergiss kein medizinisches Detail (Symptomcharakter, zeitlicher Verlauf, Auslöser, Begleitsymptome), lasse aber Smalltalk und irrelevante Gesprächsanteile rigoros weg.
-
-Formatierung: Schreibe jede Unterkategorie als eigene Überschriftszeile, darunter den Inhalt als Fließtext oder kommagetrennte Aufzählung. Trenne Unterkategorien durch eine Leerzeile.
-
 Jetziges Leiden:
-Beginne mit dem Vorstellungsgrund. Fasse zusammen: Art der Symptomatik (Schmerz, Sensibilitätsstörung, Paresen, Schwindel, Kopfschmerzen, Krampfanfälle, kognitive Defizite), Lokalisation, Seitenangabe, Ausstrahlung/Dermatomzuordnung, zeitlicher Verlauf (akut/subakut/chronisch, progredient/rezidivierend/konstant), Auslöser, Begleitsymptome (Übelkeit, Erbrechen, Sehstörungen, Sprachstörungen, Gangunsicherheit). Erwähne bisherige neurologische Diagnostik (MRT, CT, EEG, NLG/EMG, Liquorpunktion) und Vorbehandlungen.
-Bei Kopfschmerzen: Frequenz, Dauer der Einzelattacke, Aura, Trigger, begleitende Photo-/Phonophobie.
-Bei Schwindel: Drehschwindel vs. Schwankschwindel, Dauer, Lageabhängigkeit, Nystagmus.
+Art der Symptomatik (Schmerz, Sensibilitätsstörung, Paresen, Schwindel, Kopfschmerzen, Krampfanfälle, kognitive Defizite), Lokalisation, Seitenangabe, Ausstrahlung/Dermatomzuordnung, zeitlicher Verlauf (akut/subakut/chronisch, progredient/rezidivierend/konstant), Auslöser, Begleitsymptome (Übelkeit, Erbrechen, Sehstörungen, Sprachstörungen, Gangunsicherheit). Bisherige neurologische Diagnostik (MRT, CT, EEG, NLG/EMG, Liquorpunktion) und Vorbehandlungen.
+Bei Kopfschmerzen: Frequenz, Dauer der Einzelattacke, Aura, Trigger, Photo-/Phonophobie.
+Bei Schwindel: Dreh- vs. Schwankschwindel, Dauer, Lageabhängigkeit, Nystagmus.
 Bei Anfallsleiden: Anfallstyp, Frequenz, letzte Episode, Prodromi, postiktale Phase.
 
-Vorerkrankungen / Spezielle Anamnese:
-Neurologische Vorerkrankungen (Epilepsie, MS, Schlaganfall, Polyneuropathie), psychiatrische Komorbidität, Schädel-Hirn-Traumata, neurochirurgische Eingriffe, vaskuläre Risikofaktoren (arterielle Hypertonie, Diabetes, Vorhofflimmern, Hyperlipidämie), Familienanamnese für neurologische Erkrankungen, kommagetrennt.
-Fallback: ""Keine relevanten Vorerkrankungen eruierbar.""
+Vorerkrankungen:
+Neurologische Vorerkrankungen (Epilepsie, MS, Schlaganfall, Polyneuropathie), psychiatrische Komorbidität, SHT, neurochirurgische Eingriffe, vaskuläre Risikofaktoren (art. Hypertonie, Diabetes, VHF, Hyperlipidämie), Familienanamnese neurologisch.
 
 Dauermedikation:
-Jedes Medikament in eine neue Zeile. Format: Name Dosierung Einnahmeschema (z.B. Levetiracetam 500 mg 1-0-1).
-Besondere Beachtung von: Antikonvulsiva, Antikoagulantien, Antidepressiva, Neuroleptika, Analgetika inkl. Triptane.
-Fallback: ""Aktuell keine regelmäßige Medikamenteneinnahme bekannt.""
-
-Allergien / Unverträglichkeiten:
-Auslöser und Reaktionstyp sofern genannt.
-Fallback: ""Keine Allergien oder Unverträglichkeiten bekannt.""
+Format: Name Dosierung Schema (z.B. Levetiracetam 500 mg 1-0-1). Besondere Beachtung: Antikonvulsiva, Antikoagulantien, Antidepressiva, Neuroleptika, Triptane.
 
 Vegetative Anamnese:
-Schlafstörungen (Ein-/Durchschlaf, Schlafapnoe, REM-Schlaf-Verhaltensstörung), Blasen-/Mastdarmfunktion, Schweißsekretionsstörungen, orthostatische Beschwerden, Gewichtsveränderung.
-Fallback: ""Vegetative Anamnese im Gespräch nicht erhoben.""
+Schlafstörungen (Ein-/Durchschlaf, Schlafapnoe, REM-Schlaf-Verhaltensstörung), Blasen-/Mastdarmfunktion, Schweißsekretionsstörungen, orthostatische Beschwerden.
 
 Noxen / Sozialanamnese:
-Nikotinkonsum, Alkoholkonsum (insbesondere bzgl. Polyneuropathie, Anfallsrisiko), Beruf (Nacht-/Schichtarbeit, Exposition gegenüber Neurotoxinen), Fahrtauglichkeit, Pflegebedarf, häusliche Versorgungssituation.
-Fallback: ""Noxenanamnese nicht erhoben. Sozialanamnese unauffällig.""";
+Alkohol (bzgl. Polyneuropathie, Anfallsrisiko), Beruf (Nacht-/Schichtarbeit, Neurotoxine), Fahrtauglichkeit, Pflegebedarf.";
         }
 
         private static string GetDefaultBefundPromptAM()
         {
             return @"FACH-MODUL BEFUND: ALLGEMEINMEDIZIN
 
-Erstelle aus dem Transkript den klinischen Untersuchungsbefund. Dokumentiere ausschließlich im Gespräch genannte oder durchgeführte Untersuchungen. Erfinde keine Befunde hinzu.
+Vitalparameter: RR, Puls, Temperatur, SpO2, Gewicht, Größe.
 
-Formatierung: Für jedes untersuchte Organsystem einen Block. Überschrift: ""Befund [Organsystem] [Seitenangabe wenn zutreffend]:"". Darunter die Einzelbefunde (Inspektion, Palpation, Perkussion, Auskultation, orientierende Funktion), durch Komma getrennt, Block mit Punkt abschließen. Leerzeile zwischen verschiedenen Organsystem-Blöcken.
-
-Vitalparameter:
-Wenn genannt, als ersten Block anführen: RR [Wert] mmHg, Puls [Wert]/min, Temperatur [Wert] Grad C, SpO2 [Wert] %, Gewicht [Wert] kg, Größe [Wert] cm.
-
-Relevante Organsysteme (nur dokumentieren wenn im Gespräch untersucht):
-Allgemeinzustand und Ernährungszustand.
-Haut und Schleimhäute: Kolorit, Turgor, Effloreszenzen, Ikterus, Zyanose.
-Kopf/Hals: Lymphknoten, Schilddrüse, Meningismus.
-Herz: Auskultation (Herzrhythmus, Herztöne, Geräusche).
-Lunge: Auskultation (Atemgeräusch, Rasselgeräusche, Giemen), Perkussion.
-Abdomen: Inspektion, Auskultation (Darmgeräusche), Palpation (Druckschmerz, Resistenzen, Organomegalie), Perkussion.
-Extremitäten: Ödeme, Pulse, Varikosis, Beweglichkeit.
-Orientierende neurologische Untersuchung: Pupillen, Kraft, Sensibilität, Koordination sofern durchgeführt.
-
-Fallback (wenn keine Untersuchung stattfand):
-""Keine Untersuchungsergebnisse dokumentiert.""";
+Organsysteme (nur wenn untersucht):
+AZ/EZ. Haut/Schleimhäute (Kolorit, Turgor, Effloreszenzen, Ikterus, Zyanose). Kopf/Hals (LK, Schilddrüse, Meningismus). Herz (Rhythmus, Töne, Geräusche). Lunge (Atemgeräusch, RG, Giemen, Perkussion). Abdomen (DG, Druckschmerz, Resistenzen, Organomegalie). Extremitäten (Ödeme, Pulse, Varikosis). Neurologie orientierend (Pupillen, Kraft, Sensibilität, Koordination).";
         }
 
         private static string GetDefaultBefundPromptOR()
         {
             return @"FACH-MODUL BEFUND: ORTHOPÄDIE
 
-Erstelle aus dem Transkript den klinischen Untersuchungsbefund. Dokumentiere ausschließlich im Gespräch genannte oder durchgeführte Untersuchungen. Erfinde keine Befunde hinzu. Übernimm genannte Testbezeichnungen wörtlich.
+Übernimm genannte Testbezeichnungen wörtlich.
 
-Formatierung: Für jeden untersuchten anatomischen Bereich einen Block. Überschrift: ""Befund [Region] [re./li./bds.]:"". Darunter die Einzelbefunde, durch Komma getrennt, Block mit Punkt abschließen. Leerzeile zwischen verschiedenen Regions-Blöcken.
-
-Vitalparameter:
-Wenn genannt: RR [Wert] mmHg, Puls [Wert]/min.
-
-Relevante Untersuchungsinhalte pro Region (nur dokumentieren wenn durchgeführt):
-Inspektion: Haltung, Gangbild (Hinken, Schonhaltung), Achsfehlstellung, Schwellung, Rötung, Muskelatrophie, Narben.
-Palpation: Druckschmerz (exakte Lokalisation), Krepitation, Erguss, Überwärmung, Muskelhartspann, Triggerpunkte, myofasziale Tonuserhöhung.
-Bewegungsausmaß (ROM): Neutral-Null-Methode sofern dokumentiert (z.B. Flex/Ext 130/0/0 Grad). Endgefühl, Bewegungsschmerz.
-Kraft: Kraftgrade nach Janda (0-5) sofern geprüft, Seitenvergleich.
-Stabilitätstests: Testbezeichnung und Ergebnis (positiv/negativ), z.B. Lachman-Test negativ, vordere Schublade negativ, Meniskustests (McMurray, Steinmann, Apley), Impingement-Tests (Neer, Hawkins, Jobe), Bandstabilität (Aufklappbarkeit, Pivot-Shift).
-Neurologie orientierend: Sensibilität, Motorik, Reflexe der betroffenen Extremität sofern geprüft.
-Wirbelsäule: Schober-Zeichen, Ott-Zeichen, Finger-Boden-Abstand, Lasegue, Bragard, Federungstest, ISG-Provokation sofern durchgeführt.
-
-Fallback (wenn keine Untersuchung stattfand):
-""Keine Untersuchungsergebnisse dokumentiert.""";
+Pro Region (nur wenn untersucht):
+Inspektion: Haltung, Gangbild, Achsfehlstellung, Schwellung, Rötung, Muskelatrophie, Narben.
+Palpation: Druckschmerz (exakte Lokalisation), Krepitation, Erguss, Überwärmung, Muskelhartspann, Triggerpunkte.
+ROM: Neutral-Null-Methode (z.B. Flex/Ext 130/0/0 Grad), Endgefühl, Bewegungsschmerz.
+Kraft: Janda (0-5), Seitenvergleich.
+Stabilitätstests: Testname + Ergebnis (pos./neg.), z.B. Lachman, Schublade, McMurray, Steinmann, Neer, Hawkins, Jobe, Pivot-Shift.
+Neurologie: Sensibilität, Motorik, Reflexe der betroffenen Extremität.
+WS: Schober, Ott, FBA, Lasegue, Bragard, Federungstest, ISG-Provokation.";
         }
 
         private static string GetDefaultBefundPromptNE()
         {
             return @"FACH-MODUL BEFUND: NEUROLOGIE
 
-Erstelle aus dem Transkript den neurologischen Untersuchungsbefund. Dokumentiere ausschließlich im Gespräch genannte oder durchgeführte Untersuchungen. Erfinde keine Befunde hinzu.
+Seitenvergleich dokumentieren wo relevant (re./li./bds.). Pro System (nur wenn geprüft):
 
-Formatierung: Für jedes geprüfte neurologische System einen Block. Überschrift: ""Befund [System]:"". Darunter die Einzelbefunde, durch Komma getrennt, Block mit Punkt abschließen. Leerzeile zwischen verschiedenen System-Blöcken. Seitenvergleich dokumentieren wo relevant (re./li./bds.).
-
-Vitalparameter:
-Wenn genannt: RR [Wert] mmHg, Puls [Wert]/min, Temperatur [Wert] Grad C.
-
-Relevante neurologische Untersuchungssysteme (nur dokumentieren wenn geprüft):
-
-Bewusstsein und Orientierung:
-Vigilanz (wach, somnolent, soporös, komatös), Orientierung (zeitlich, örtlich, situativ, zur Person), GCS sofern erhoben.
+Bewusstsein: Vigilanz, Orientierung (zeitl./örtl./situativ/Person), GCS.
 
 Hirnnerven:
-I: Riechprüfung.
-II: Visus orientierend, Gesichtsfeld (Fingerperimetrie), Pupillen (isokor/anisokor, Weite, direkte/konsensuelle Lichtreaktion, Konvergenz).
-III/IV/VI: Augenmotilität (Blickfolge, Doppelbilder, Nystagmus: Richtung, erschöpflich/nicht erschöpflich).
-V: Sensibilität Gesicht (alle drei Äste), Masseterreflex, Kornealreflex.
-VII: Mimische Muskulatur (Stirnrunzeln, Lidschluss, Nasolabialfalte, Zähnezeigen), Geschmack vordere 2/3 der Zunge sofern geprüft.
-VIII: Hörprüfung orientierend (Fingerreiben), Weber, Rinne sofern durchgeführt.
-IX/X: Gaumensegelinnervation, Würgereflex, Schluckakt.
-XI: Kopfwendung, Schulterhebung (M. trapezius, M. sternocleidomastoideus).
-XII: Zungenmotilität (Deviation, Atrophie, Faszikulationen).
+I: Riechprüfung. II: Visus, Gesichtsfeld, Pupillen (isokor/anisokor, Lichtreaktion, Konvergenz). III/IV/VI: Augenmotilität, Nystagmus. V: Sensibilität Gesicht, Masseterreflex, Kornealreflex. VII: Mimik (Stirnrunzeln, Lidschluss, Nasolabialfalte), Geschmack. VIII: Hörprüfung, Weber, Rinne. IX/X: Gaumensegel, Würgereflex, Schluckakt. XI: Kopfwendung, Schulterhebung. XII: Zungenmotilität, Deviation, Faszikulationen.
 
-Motorik:
-Kraftgrade nach MRC (0-5) pro Kennmuskel oder Muskelgruppe, Seitenvergleich. Muskeltonus (normoton, spastisch, rigide, schlaff). Trophik (Atrophie, Faszikulationen).
-
-Sensibilität:
-Berührung (Pallästhesie, Graphästhesie), Schmerz (Spitz-Stumpf-Diskrimination), Temperatur, Vibration (Stimmgabel mit Wertangabe /8), Lagesinn. Angabe der betroffenen Dermatome oder Verteilung (strumpf-/handschuhförmig, halbseitig, dissoziiert).
-
-Reflexe:
-Muskeleigenreflexe: BSR, TSR, RPR, PSR, ASR (Seitenvergleich, Abschwächung/Steigerung/Kloni). Pathologische Reflexe: Babinski, Gordon, Oppenheim, Troemner.
-
-Koordination:
-Finger-Nase-Versuch, Knie-Hacke-Versuch, Dysdiadochokinese, Rebound-Phänomen, Romberg-Stehversuch, Unterberger-Tretversuch.
-
-Gang:
-Gangbild (normal, breitbasig, kleinschrittig, ataktisch, spastisch, hinkend), Seiltänzergang, Einbeinstand, Fersengang, Zehenspitzengang.
-
-Sprache und Kognition:
-Dysarthrie, Aphasie (Typ sofern differenzierbar), Neglect, Apraxie, orientierende kognitive Prüfung (MMSE, MoCA, Uhrentest) mit Ergebnis sofern durchgeführt.
-
-Meningismus:
-Nackensteife, Brudzinski, Kernig, Lasegue sofern geprüft.
-
-Fallback (wenn keine Untersuchung stattfand):
-""Keine Untersuchungsergebnisse dokumentiert.""";
+Motorik: MRC-Kraftgrade (0-5), Seitenvergleich. Tonus (normoton/spastisch/rigide/schlaff). Trophik.
+Sensibilität: Berührung, Schmerz, Temperatur, Vibration (/8), Lagesinn. Verteilung (dermatombezogen/strumpfförmig/halbseitig).
+Reflexe: MER (BSR, TSR, RPR, PSR, ASR) + Seitenvergleich. Pathologisch: Babinski, Gordon, Oppenheim, Troemner.
+Koordination: FNV, KHV, Dysdiadochokinese, Rebound, Romberg, Unterberger.
+Gang: Gangbild, Seiltänzergang, Einbeinstand, Fersen-/Zehengang.
+Sprache/Kognition: Dysarthrie, Aphasie, Neglect, Apraxie, MMSE/MoCA/Uhrentest.
+Meningismus: Nackensteife, Brudzinski, Kernig, Lasegue.";
         }
 
         private static string GetDefaultDiagnosenPrompt()
@@ -684,7 +595,25 @@ Gib nur die Marker aus, die vom Nutzer angefordert wurden.
 
 Negativbefunde: Wenn eine Kategorie im Gespräch nicht thematisiert wurde, nutze den jeweils vorgesehenen Fallback-Satz. Erfinde niemals Informationen hinzu.
 
-Sprecher-Erkennung: Analysiere das Gesprächstranskript. Der Sprecher, der Fragen stellt, Anweisungen gibt oder Untersuchungen durchführt, ist der Arzt. Der andere Sprecher ist der Patient. Tausche die Rollen logisch, falls die Labels vertauscht erscheinen.";
+Sprecher-Erkennung: Analysiere das Gesprächstranskript. Der Sprecher, der Fragen stellt, Anweisungen gibt oder Untersuchungen durchführt, ist der Arzt. Der andere Sprecher ist der Patient. Tausche die Rollen logisch, falls die Labels vertauscht erscheinen.
+
+ANAMNESE-BASISREGELN (gelten für jeden **A**-Abschnitt):
+Erstelle aus dem Transkript die Anamnese im Nominalstil oder in kurzen, objektiven Sätzen. Vergiss kein medizinisches Detail, lasse aber Smalltalk und irrelevante Gesprächsanteile rigoros weg.
+Formatierung: Schreibe jede Unterkategorie als eigene Überschriftszeile, darunter den Inhalt als Fließtext oder kommagetrennte Aufzählung. Trenne Unterkategorien durch eine Leerzeile.
+Standard-Unterkategorien (sofern das Fach-Modul nichts anderes definiert):
+Jetziges Leiden | Vorerkrankungen / Spezielle Anamnese | Dauermedikation | Allergien / Unverträglichkeiten | Vegetative Anamnese | Noxen / Sozialanamnese.
+Standard-Fallbacks:
+Vorerkrankungen: ""Keine relevanten Vorerkrankungen eruierbar.""
+Dauermedikation: ""Aktuell keine regelmäßige Medikamenteneinnahme bekannt.""
+Allergien: ""Keine Allergien oder Unverträglichkeiten bekannt.""
+Vegetative Anamnese: ""Vegetative Anamnese im Gespräch nicht erhoben.""
+Noxen: ""Noxenanamnese nicht erhoben. Sozialanamnese unauffällig.""
+
+BEFUND-BASISREGELN (gelten für jeden **Be**-Abschnitt):
+Erstelle aus dem Transkript den klinischen Untersuchungsbefund. Dokumentiere ausschließlich im Gespräch genannte oder durchgeführte Untersuchungen. Erfinde keine Befunde hinzu.
+Formatierung: Für jeden untersuchten Bereich einen Block. Überschrift: ""Befund [Bereich] [Seitenangabe wenn zutreffend]:"". Darunter die Einzelbefunde, durch Komma getrennt, Block mit Punkt abschließen. Leerzeile zwischen Blöcken.
+Vitalparameter wenn genannt als ersten Block anführen.
+Fallback: ""Keine Untersuchungsergebnisse dokumentiert.""";
         }
 
         private static SubjectForm CreateDefaultAllgemeinmedizinForm()

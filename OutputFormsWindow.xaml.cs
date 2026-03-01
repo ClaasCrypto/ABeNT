@@ -62,19 +62,43 @@ namespace ABeNT
             TxtPromptA.Text = form.SectionPrompts?.A ?? string.Empty;
             TxtPromptBe.Text = form.SectionPrompts?.Be ?? string.Empty;
             TxtPromptN.Text = form.SectionPrompts?.N ?? string.Empty;
-            TxtPromptT.Text = form.SectionPrompts?.T ?? string.Empty;
+            TxtPromptIcd10.Text = form.SectionPrompts?.Icd10 ?? string.Empty;
             BtnRestoreDefault.Visibility = OutputFormsService.IsStandardForm(form.Id) ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void BtnAdd_Click(object sender, RoutedEventArgs e)
         {
-            string newId = "formular_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var dlg = new GeneratePromptsDialog { Owner = this };
+            bool generated = dlg.ShowDialog() == true;
+
+            string displayName;
+            string description = string.Empty;
+            var prompts = new AbentSectionPrompts();
+
+            if (generated)
+            {
+                displayName = string.IsNullOrWhiteSpace(dlg.Untersuchung)
+                    ? dlg.Fachgebiet
+                    : $"{dlg.Fachgebiet} – {dlg.Untersuchung}";
+                if (!dlg.AnamneseIncluded)
+                    description = "Kein Anamnese-Block.";
+                prompts.A = dlg.GeneratedA;
+                prompts.Be = dlg.GeneratedBe;
+                prompts.N = dlg.GeneratedN;
+                prompts.Icd10 = dlg.GeneratedIcd10;
+            }
+            else
+            {
+                displayName = "Neues Formular";
+            }
+
+            string newId = NormalizeId(displayName + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"));
             var newForm = new SubjectForm
             {
                 Id = newId,
-                DisplayName = "Neues Formular",
-                Description = string.Empty,
-                SectionPrompts = new AbentSectionPrompts()
+                DisplayName = displayName,
+                Description = description,
+                SectionPrompts = prompts
             };
             try
             {
@@ -86,7 +110,7 @@ namespace ABeNT
                 _editingFormId = newId;
                 PanelFormDetail.Visibility = Visibility.Visible;
                 BtnRemove.IsEnabled = true;
-                TxtId.IsReadOnly = false; // Bei Neu darf Id noch geändert werden (einmalig)
+                TxtId.IsReadOnly = false;
             }
             catch (Exception ex)
             {
@@ -137,7 +161,7 @@ namespace ABeNT
                     TxtPromptA.Text = form.SectionPrompts?.A ?? string.Empty;
                     TxtPromptBe.Text = form.SectionPrompts?.Be ?? string.Empty;
                     TxtPromptN.Text = form.SectionPrompts?.N ?? string.Empty;
-                    TxtPromptT.Text = form.SectionPrompts?.T ?? string.Empty;
+                    TxtPromptIcd10.Text = form.SectionPrompts?.Icd10 ?? string.Empty;
                 }
                 RefreshFormList();
                 MessageBox.Show("Standard wiederhergestellt.", "Erfolg", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -166,8 +190,8 @@ namespace ABeNT
                 A = TxtPromptA.Text ?? string.Empty,
                 Be = TxtPromptBe.Text ?? string.Empty,
                 N = TxtPromptN.Text ?? string.Empty,
-                T = TxtPromptT.Text ?? string.Empty,
-                Icd10 = (LstForms.SelectedItem is SubjectForm current) ? (current.SectionPrompts?.Icd10 ?? string.Empty) : string.Empty
+                T = string.Empty,
+                Icd10 = TxtPromptIcd10.Text ?? string.Empty
             };
             var form = new SubjectForm
             {
@@ -214,6 +238,18 @@ namespace ABeNT
             id = Regex.Replace(id, @"[^a-z0-9_\-]", "_");
             id = Regex.Replace(id, @"_+", "_").Trim('_');
             return string.IsNullOrEmpty(id) ? "formular" : id;
+        }
+
+        private void BtnGeneratePrompts_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new GeneratePromptsDialog { Owner = this };
+            if (dlg.ShowDialog() == true)
+            {
+                TxtPromptA.Text = dlg.GeneratedA;
+                TxtPromptBe.Text = dlg.GeneratedBe;
+                TxtPromptN.Text = dlg.GeneratedN;
+                TxtPromptIcd10.Text = dlg.GeneratedIcd10;
+            }
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)

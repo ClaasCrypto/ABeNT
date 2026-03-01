@@ -1,0 +1,59 @@
+<Window x:Class="ABeNT.GeneratePromptsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Prompts automatisch generieren" Height="340" Width="480"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource BackgroundPage}">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+            <Rectangle Width="4" Height="16" Fill="{StaticResource AccentBlue}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+            <TextBlock Text="Fachgebiet / Untersuchung" FontSize="14" FontWeight="SemiBold"
+                       Foreground="{StaticResource TextPrimary}"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Text="Fachgebiet (z. B. Kardiologie, HNO, Dermatologie):"
+                   FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+        <TextBox x:Name="TxtFachgebiet" Grid.Row="2"
+                 Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12"/>
+
+        <TextBlock Grid.Row="3" Text="Spezielle Untersuchung (optional, z. B. Audiometrie, Spirometrie):"
+                   FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+        <TextBox x:Name="TxtUntersuchung" Grid.Row="4"
+                 Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,14"/>
+
+        <CheckBox x:Name="ChkAnamnese" Grid.Row="5" Content="Anamnese einbeziehen"
+                  IsChecked="True" FontSize="13" Margin="0,0,0,8"
+                  Foreground="{StaticResource TextPrimary}"/>
+
+        <TextBlock x:Name="TxtStatus" Grid.Row="6" Text=""
+                   FontSize="12" FontStyle="Italic"
+                   Foreground="{StaticResource TextSecondary}"
+                   VerticalAlignment="Bottom" Margin="0,0,0,10"/>
+
+        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="BtnGenerate" Content="Generieren"
+                    Style="{StaticResource FilledAccentButtonStyle}"
+                    Padding="20,8" Margin="0,0,10,0"
+                    Click="BtnGenerate_Click"/>
+            <Button x:Name="BtnCancel" Content="Abbrechen"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    Padding="20,8"
+                    Click="BtnCancel_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -98,8 +98,8 @@
                     <TextBlock Text="N (Diagnose):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
                     <TextBox x:Name="TxtPromptN" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
                     
-                    <TextBlock Text="T (Therapie):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
-                    <TextBox x:Name="TxtPromptT" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,18" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+                    <TextBlock Text="ICD-10 (Codierung):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                    <TextBox x:Name="TxtPromptIcd10" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,18" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
                     
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <Button x:Name="BtnSaveForm" Content="Formular speichern"
@@ -107,6 +107,11 @@
                                 Padding="16,8" FontSize="13"
                                 Margin="0,0,10,0"
                                 Click="BtnSaveForm_Click"/>
+                        <Button x:Name="BtnGeneratePrompts" Content="Prompts generieren"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Padding="16,8" FontSize="13"
+                                Margin="0,0,10,0"
+                                Click="BtnGeneratePrompts_Click"/>
                         <Button x:Name="BtnRestoreDefault" Content="Standard wiederherstellen"
                                 Style="{StaticResource SubtleButtonStyle}"
                                 Padding="16,8" FontSize="13"
