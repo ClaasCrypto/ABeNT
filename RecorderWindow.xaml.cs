@@ -15,7 +15,7 @@ namespace ABeNT
     public partial class RecorderWindow : Window
     {
         private AudioService? _audioService;
-        private DeepgramService? _deepgramService;
+        private ISttService? _sttService;
         private LlmService? _llmService;
         private DispatcherTimer? _recordingTimer;
         private DateTime _recordingStartTime;
@@ -34,7 +34,6 @@ namespace ABeNT
             InitializeComponent();
             _audioService = new AudioService();
             _audioService.OnAudioLevelChanged += AudioService_OnAudioLevelChanged;
-            _deepgramService = new DeepgramService();
             _llmService = new LlmService();
             Loaded += RecorderWindow_Loaded;
             Closed += RecorderWindow_Closed;
@@ -60,7 +59,7 @@ namespace ABeNT
                 _audioService.StopMonitoring();
             SaveCurrentMicrophoneToSettings();
             _audioService?.Dispose();
-            _deepgramService?.Dispose();
+            _sttService?.Dispose();
             _llmService?.Dispose();
         }
 
@@ -129,8 +128,27 @@ namespace ABeNT
             Dispatcher.Invoke(() => PbAudioLevel.Value = level);
         }
 
-        private void BtnStart_Click(object sender, RoutedEventArgs e)
+        private void BtnStartNeu_Click(object sender, RoutedEventArgs e)
         {
+            if (ReportOptions != null)
+                ReportOptions.RecordingMode = "Neupatient";
+            StartRecordingFromButton();
+        }
+
+        private void BtnStartKontrolle_Click(object sender, RoutedEventArgs e)
+        {
+            if (ReportOptions != null)
+                ReportOptions.RecordingMode = "Kontrolltermin";
+            StartRecordingFromButton();
+        }
+
+        private void StartRecordingFromButton()
+        {
+            if (ReportOptions != null)
+                ReportOptions.Gender = (CmbGender.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString() ?? "Neutral";
+            PanelStartButtons.Visibility = Visibility.Collapsed;
+            PanelRecordingButtons.Visibility = Visibility.Visible;
+            CmbGender.IsEnabled = false;
             StartOrResumeRecording();
         }
 
@@ -146,7 +164,6 @@ namespace ABeNT
                 _recordingTimer.Tick += RecordingTimer_Tick;
                 _recordingTimer.Start();
                 _isPaused = false;
-                BtnStart.IsEnabled = false;
                 BtnPauseResume.IsEnabled = true;
                 BtnPauseResume.Content = "Pause";
                 BtnFinish.IsEnabled = true;
@@ -186,7 +203,6 @@ namespace ABeNT
                 }
                 _isPaused = true;
                 BtnPauseResume.Content = "Fortsetzen";
-                BtnStart.IsEnabled = true;
                 TxtStatus.Text = "Pausiert – Fortsetzen oder Beenden & Auswerten.";
             }
             catch (Exception ex)
@@ -198,7 +214,9 @@ namespace ABeNT
         private void ResetAfterCancelOrError()
         {
             BtnStop.Visibility = Visibility.Collapsed;
-            BtnStart.IsEnabled = true;
+            PanelRecordingButtons.Visibility = Visibility.Collapsed;
+            PanelStartButtons.Visibility = Visibility.Visible;
+            CmbGender.IsEnabled = true;
             BtnFinish.IsEnabled = true;
             BtnPauseResume.IsEnabled = _audioSegments.Count > 0;
             TxtStatus.Text = "Bereit.";
@@ -234,30 +252,37 @@ namespace ABeNT
                 if (_audioSegments.Count == 0)
                 {
                     MessageBox.Show("Keine Aufnahme vorhanden. Bitte zuerst aufnehmen.", "Hinweis", MessageBoxButton.OK, MessageBoxImage.Information);
-                    BtnStart.IsEnabled = true;
-                    BtnFinish.IsEnabled = true;
+                    PanelRecordingButtons.Visibility = Visibility.Collapsed;
+                    PanelStartButtons.Visibility = Visibility.Visible;
                     TxtStatus.Text = "Bereit – Aufnahme starten.";
                     return;
                 }
 
                 var options = ReportOptions;
-                if (options == null || string.IsNullOrWhiteSpace(options.DeepgramApiKey))
+                if (options == null)
                 {
-                    MessageBox.Show("Bitte Deepgram API Key in den Einstellungen eintragen.", "API Key fehlt", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    BtnStart.IsEnabled = true;
-                    BtnFinish.IsEnabled = true;
-                    TxtStatus.Text = "Bereit.";
+                    MessageBox.Show("Einstellungen fehlen.", "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    ResetAfterCancelOrError();
+                    return;
+                }
+
+                string? sttError = ValidateSttSettings(options);
+                if (sttError != null)
+                {
+                    MessageBox.Show(sttError, "STT-Einstellung fehlt", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    ResetAfterCancelOrError();
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(options.GetLlmApiKey()))
                 {
                     MessageBox.Show($"Bitte API Key für {options.SelectedLlm} in den Einstellungen eintragen.", "API Key fehlt", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    BtnStart.IsEnabled = true;
-                    BtnFinish.IsEnabled = true;
-                    TxtStatus.Text = "Bereit.";
+                    ResetAfterCancelOrError();
                     return;
                 }
+
+                _sttService?.Dispose();
+                _sttService = SttServiceFactory.Create(options.SelectedSttProvider);
 
                 _cancelSource = new CancellationTokenSource();
                 var ct = _cancelSource.Token;
@@ -271,12 +296,11 @@ namespace ABeNT
                     ct.ThrowIfCancellationRequested();
                     try
                     {
-                        var segments = await _deepgramService!.TranscribeAudioAsync(filePath, options.DeepgramApiKey);
+                        var segments = await _sttService.TranscribeAudioAsync(filePath, options);
                         allSegments.AddRange(segments);
                     }
                     catch
                     {
-                        // Skip failed segment; doctor will not re-record
                     }
                 }
 
@@ -330,6 +354,22 @@ namespace ABeNT
                 }
                 catch { /* ignore */ }
             }
+        }
+
+        private static string? ValidateSttSettings(RecorderReportOptions opts)
+        {
+            return opts.SelectedSttProvider switch
+            {
+                "Azure" when string.IsNullOrWhiteSpace(opts.AzureSpeechKey)
+                    => "Bitte Azure Speech Key in den Einstellungen eintragen.",
+                "Azure" when string.IsNullOrWhiteSpace(opts.AzureSpeechRegion)
+                    => "Bitte Azure Region in den Einstellungen eintragen.",
+                "Custom" when string.IsNullOrWhiteSpace(opts.CustomSttEndpoint)
+                    => "Bitte Custom STT Endpoint in den Einstellungen eintragen.",
+                "Deepgram" when string.IsNullOrWhiteSpace(opts.DeepgramApiKey)
+                    => "Bitte Deepgram API Key in den Einstellungen eintragen.",
+                _ => null
+            };
         }
     }
 }

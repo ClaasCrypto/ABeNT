@@ -6,63 +6,92 @@
         xmlns:local="clr-namespace:ABeNT"
         mc:Ignorable="d"
         Title="ABeNT" Height="700" Width="1400"
-        MinHeight="600" MinWidth="1000">
+        MinHeight="600" MinWidth="1000"
+        Background="{StaticResource BackgroundPage}">
     <Window.Resources>
-        <!-- Styles für einheitliches Design -->
-        <Style x:Key="ControlButtonStyle" TargetType="Button">
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="MinHeight" Value="28"/>
-        </Style>
-        
-        <Style x:Key="RecordButtonStyle" TargetType="Button">
-            <Setter Property="Padding" Value="30,20"/>
-            <Setter Property="Margin" Value="10"/>
-            <Setter Property="FontSize" Value="18"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="MinHeight" Value="70"/>
-            <Setter Property="MinWidth" Value="200"/>
-        </Style>
-        
-        <Style x:Key="StopButtonStyle" TargetType="Button">
-            <Setter Property="Padding" Value="20,12"/>
-            <Setter Property="Margin" Value="10"/>
-            <Setter Property="FontSize" Value="16"/>
+        <Style x:Key="ControlButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}"/>
+        <Style x:Key="StopButtonStyle" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="MinHeight" Value="50"/>
         </Style>
-        
-        <Style x:Key="NoteActionButtonStyle" TargetType="Button">
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="Margin" Value="5,2"/>
+        <Style x:Key="NoteActionButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="0,3"/>
             <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style x:Key="ComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="0,5"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="MinWidth" Value="200"/>
             <Setter Property="MinHeight" Value="32"/>
         </Style>
-        
-        <Style x:Key="ComboBoxStyle" TargetType="ComboBox">
-            <Setter Property="Padding" Value="8,6"/>
-            <Setter Property="Margin" Value="5,5"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="MinWidth" Value="200"/>
-            <Setter Property="MinHeight" Value="28"/>
-        </Style>
-        
         <Style x:Key="CheckBoxStyle" TargetType="CheckBox">
-            <Setter Property="Margin" Value="5,8"/>
+            <Setter Property="Margin" Value="0,6"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+        </Style>
+        <!-- Karten-Header (warm) -->
+        <Style x:Key="CardHeaderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource CardHeaderBackground}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLight}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="18,12"/>
+        </Style>
+        <!-- Karten-Container -->
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource CardBackground}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLight}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+        <!-- Abschnittstitel -->
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+        </Style>
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
+        <!-- ReadOnly TextBox (Ergebnisfelder) -->
+        <Style x:Key="ResultTextBoxStyle" TargetType="TextBox">
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="AcceptsReturn" Value="True"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontFamily" Value="Noto Sans, Segoe UI"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="18,14"/>
+            <Setter Property="Background" Value="{StaticResource CardBackground}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="MinHeight" Value="80"/>
         </Style>
     </Window.Resources>
     
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="350" MinWidth="300"/>
+            <ColumnDefinition Width="360" MinWidth="300"/>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="300" MinWidth="250"/>
         </Grid.ColumnDefinitions>
         
-        <!-- Links: Steuerung und Aktion -->
+        <!-- ═══════════════════════════════════════════
+             Links: Steuerung und Aktion
+             ═══════════════════════════════════════════ -->
         <Grid Grid.Column="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -72,30 +101,43 @@
             
             <!-- Bereich Steuerung (Links oben) -->
             <Border Grid.Row="0" 
-                    Background="#F5F5F5" 
-                    BorderBrush="#E0E0E0" 
+                    Background="{StaticResource CardHeaderBackground}" 
+                    BorderBrush="{StaticResource BorderLight}" 
                     BorderThickness="0,0,1,1"
-                    Padding="15,15">
+                    Padding="20,20">
                 <StackPanel>
-                    <!-- Fachrichtung / Berichtsformular -->
+                    <!-- App-Titel mit geometrischem Akzent -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <!-- Bauhaus geometrisches Element: Kreis -->
+                        <Ellipse Width="14" Height="14" Fill="{StaticResource AccentCoral}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <Ellipse Width="10" Height="10" Fill="{StaticResource AccentYellow}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="ABeNT" 
+                                   FontSize="26" 
+                                   FontWeight="Bold" 
+                                   Foreground="{StaticResource TextPrimary}"
+                                   VerticalAlignment="Center"/>
+                        <!-- Bauhaus Dreiecks-Akzent -->
+                        <Polygon Points="0,12 6,0 12,12" 
+                                 Fill="{StaticResource AccentBlue}" 
+                                 Margin="8,0,0,0" 
+                                 VerticalAlignment="Center"/>
+                    </StackPanel>
+
                     <TextBlock Text="Berichtsformular (Fachrichtung):" 
-                               FontSize="13" 
-                               FontWeight="SemiBold" 
-                               Margin="5,0,5,5"/>
+                               Style="{StaticResource FieldLabel}"
+                               Margin="0,0,0,5"/>
                     <ComboBox x:Name="CmbSubjectForm" 
                               Style="{StaticResource ComboBoxStyle}"
                               DisplayMemberPath="DisplayName"
                               HorizontalAlignment="Stretch"/>
-                    <StackPanel Orientation="Horizontal" Margin="5,4,5,0" Cursor="Hand" MouseDown="BtnManageForms_Click">
-                        <TextBlock Text="&#x2699;" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <TextBlock Text="Berichtsformulare verwalten" TextDecorations="Underline" FontSize="12" Foreground="#0066CC" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" Cursor="Hand" MouseDown="BtnManageForms_Click">
+                        <TextBlock Text="&#x2699;" FontSize="14" Foreground="{StaticResource Accent}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Berichtsformulare verwalten" TextDecorations="Underline" FontSize="12" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
                     </StackPanel>
                     
-                    <!-- Bericht erstellen mit: Anamnese (immer), Befund, Therapie, ICD-10 -->
                     <TextBlock Text="Bericht erstellen mit:" 
-                               FontSize="13" 
-                               FontWeight="SemiBold" 
-                               Margin="5,10,5,5"/>
+                               Style="{StaticResource FieldLabel}"
+                               Margin="0,14,0,5"/>
                     <CheckBox x:Name="ChkAnamnese" 
                               Content="Anamnese" 
                               Style="{StaticResource CheckBoxStyle}"
@@ -104,294 +146,132 @@
                               Content="Befund" 
                               Style="{StaticResource CheckBoxStyle}"
                               Checked="ChkReportSection_Changed" Unchecked="ChkReportSection_Changed"/>
-                    <CheckBox x:Name="ChkTherapie" 
-                              Content="Therapie" 
-                              Style="{StaticResource CheckBoxStyle}"
-                              Checked="ChkReportSection_Changed" Unchecked="ChkReportSection_Changed"/>
                     <CheckBox x:Name="ChkIcd10" 
                               Content="Diagnosen nach ICD-10" 
                               Style="{StaticResource CheckBoxStyle}"
                               Checked="ChkReportSection_Changed" Unchecked="ChkReportSection_Changed"/>
                     
-                    <!-- Geschlecht -->
-                    <TextBlock Text="Geschlecht:" 
-                               FontSize="13" 
-                               FontWeight="SemiBold" 
-                               Margin="5,5,5,5"/>
-                    <ComboBox x:Name="CmbGender" 
-                              Style="{StaticResource ComboBoxStyle}">
-                        <ComboBoxItem Content="Neutral" IsSelected="True"/>
-                        <ComboBoxItem Content="Männlich"/>
-                        <ComboBoxItem Content="Weiblich"/>
-                    </ComboBox>
                 </StackPanel>
             </Border>
             
             <!-- Bereich Aktion: Recorder öffnen + Einstellungen -->
             <Border Grid.Row="1" 
-                    Background="#FAFAFA" 
-                    BorderBrush="#E0E0E0" 
+                    Background="{StaticResource BackgroundPage}" 
+                    BorderBrush="{StaticResource BorderLight}" 
                     BorderThickness="0,0,1,0"
-                    Padding="20,20">
+                    Padding="20,24">
                 <StackPanel VerticalAlignment="Center">
                     <Button x:Name="BtnOpenRecorder" 
-                            Content="Rekorder öffnen" 
+                            Content="● Rekorder öffnen" 
                             Style="{StaticResource RecordButtonStyle}"
-                            Background="#D13438" 
-                            Foreground="White"
                             HorizontalAlignment="Stretch"
                             Click="BtnOpenRecorder_Click"/>
                     <Button x:Name="BtnSettings" 
                             Content="Einstellungen / API Keys" 
                             Style="{StaticResource ControlButtonStyle}"
                             HorizontalAlignment="Stretch"
-                            Margin="5,5,5,5"
+                            Margin="0,10,0,0"
                             Click="BtnSettings_Click"/>
                     <TextBlock x:Name="TxtKeyStatus" 
-                               FontSize="11" Foreground="#666666" Margin="5,8,5,0"/>
+                               FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,12,0,0"
+                               TextAlignment="Center"/>
                 </StackPanel>
             </Border>
             
-            <!-- Platzhalter (ehemals Technische Einstellungen) -->
+            <!-- Platzhalter mit geometrischer Dekoration -->
             <Border Grid.Row="2" 
-                    Background="#F5F5F5" 
-                    BorderBrush="#E0E0E0" 
+                    Background="{StaticResource CardHeaderBackground}" 
+                    BorderBrush="{StaticResource BorderLight}" 
                     BorderThickness="0,1,1,0"
-                    Padding="15,15">
-                <TextBlock Text="Mikrofon und Aufnahme im Aufnahme-Fenster."
-                           FontSize="12" Foreground="#666666" TextWrapping="Wrap"/>
+                    Padding="20,14">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Fill="{StaticResource AccentPink}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Mikrofon und Aufnahme im Aufnahme-Fenster."
+                               FontSize="12" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
             </Border>
         </Grid>
         
-        <!-- Mitte: Ergebnis -->
+        <!-- ═══════════════════════════════════════════
+             Mitte: Ergebnis
+             ═══════════════════════════════════════════ -->
         <Border Grid.Column="1" 
-                BorderBrush="#E0E0E0" 
+                Background="{StaticResource BackgroundPage}"
+                BorderBrush="{StaticResource BorderLight}" 
                 BorderThickness="0,0,1,0"
-                Padding="20">
+                Padding="24,20">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 
-                <TextBlock Text="Letzter Bericht" 
-                           FontSize="16" 
-                           FontWeight="SemiBold" 
-                           Margin="0,0,0,15"
-                           Grid.Row="0"/>
+                <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,18">
+                    <TextBlock Text="Letzter Bericht" Style="{StaticResource SectionTitle}"/>
+                    <!-- Geometrischer Akzent neben dem Titel -->
+                    <Rectangle Width="20" Height="4" Fill="{StaticResource AccentYellow}" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                    <Rectangle Width="10" Height="4" Fill="{StaticResource AccentCoral}" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
                 
                 <ScrollViewer Grid.Row="1"
                               VerticalScrollBarVisibility="Visible" 
                               HorizontalScrollBarVisibility="Disabled">
                     <StackPanel x:Name="SpResultCards" Margin="0,0,10,0">
                         <!-- Karte: Anamnese -->
-                        <Border Background="White" 
-                                BorderBrush="#CCCCCC" 
-                                BorderThickness="1" 
-                                CornerRadius="4"
-                                Padding="0"
-                                Margin="0,0,0,15">
+                        <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <Border Background="#F5F5F5" 
-                                        BorderBrush="#CCCCCC" 
-                                        BorderThickness="0,0,0,1"
-                                        Padding="15,10">
+                                <Border Style="{StaticResource CardHeaderStyle}">
                                     <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <Grid Grid.Row="0">
-                                            <TextBlock Text="Anamnese" 
-                                                       FontSize="14" 
-                                                       FontWeight="SemiBold" 
-                                                       VerticalAlignment="Center"/>
-                                            <Button x:Name="BtnCopyA" 
-                                                    Content="Kopieren" 
-                                                    HorizontalAlignment="Right"
-                                                    Padding="10,5"
-                                                    FontSize="12"
-                                                    Click="BtnCopyA_Click"/>
-                                        </Grid>
-                                        <CheckBox x:Name="ChkErstanamnese" 
-                                                  Grid.Row="1"
-                                                  Content="ausführliche Erstanamnese" 
-                                                  IsEnabled="False"
-                                                  IsChecked="False"
-                                                  Margin="0,6,0,0"
-                                                  FontSize="12"
-                                                  Checked="ChkErstanamnese_Changed"
-                                                  Unchecked="ChkErstanamnese_Changed"/>
+                                        <TextBlock Text="Anamnese" Style="{StaticResource CardTitle}"/>
+                                        <Button x:Name="BtnCopyA" 
+                                                Content="Kopieren" 
+                                                Style="{StaticResource AccentButtonStyle}"
+                                                HorizontalAlignment="Right"
+                                                Padding="12,5"
+                                                FontSize="12"
+                                                Click="BtnCopyA_Click"/>
                                     </Grid>
                                 </Border>
-                                <TextBox x:Name="TxtAnamnese" 
-                                         IsReadOnly="True"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         BorderThickness="0"
-                                         FontFamily="Segoe UI"
-                                         FontSize="14"
-                                         Padding="15"
-                                         Background="White"
-                                         Text=""
-                                         MinHeight="80"/>
+                                <TextBox x:Name="TxtAnamnese" Style="{StaticResource ResultTextBoxStyle}" Text=""/>
                             </StackPanel>
                         </Border>
                         
                         <!-- Karte: Befund -->
-                        <Border Background="White" 
-                                BorderBrush="#CCCCCC" 
-                                BorderThickness="1" 
-                                CornerRadius="4"
-                                Padding="0"
-                                Margin="0,0,0,15">
+                        <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <Border Background="#F5F5F5" 
-                                        BorderBrush="#CCCCCC" 
-                                        BorderThickness="0,0,0,1"
-                                        Padding="15,10">
+                                <Border Style="{StaticResource CardHeaderStyle}">
                                     <Grid>
-                                        <TextBlock Text="Befund" 
-                                                   FontSize="14" 
-                                                   FontWeight="SemiBold" 
-                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="Befund" Style="{StaticResource CardTitle}"/>
                                         <Button x:Name="BtnCopyBe" 
                                                 Content="Kopieren" 
+                                                Style="{StaticResource AccentButtonStyle}"
                                                 HorizontalAlignment="Right"
-                                                Padding="10,5"
+                                                Padding="12,5"
                                                 FontSize="12"
                                                 Click="BtnCopyBe_Click"/>
                                     </Grid>
                                 </Border>
-                                <TextBox x:Name="TxtBefund" 
-                                         IsReadOnly="True"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         BorderThickness="0"
-                                         FontFamily="Segoe UI"
-                                         FontSize="14"
-                                         Padding="15"
-                                         Background="White"
-                                         Text=""
-                                         MinHeight="80"/>
+                                <TextBox x:Name="TxtBefund" Style="{StaticResource ResultTextBoxStyle}" Text=""/>
                             </StackPanel>
                         </Border>
                         
-                        <!-- Karte: Diagnosen -->
-                        <Border Background="White" 
-                                BorderBrush="#CCCCCC" 
-                                BorderThickness="1" 
-                                CornerRadius="4"
-                                Padding="0"
-                                Margin="0,0,0,15">
+                        <!-- Karte: Diagnosen / ICD-10 -->
+                        <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <Border Background="#F5F5F5" 
-                                        BorderBrush="#CCCCCC" 
-                                        BorderThickness="0,0,0,1"
-                                        Padding="15,10">
+                                <Border Style="{StaticResource CardHeaderStyle}">
                                     <Grid>
-                                        <TextBlock Text="Diagnosen" 
-                                                   FontSize="14" 
-                                                   FontWeight="SemiBold" 
-                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="Diagnosen / ICD-10" Style="{StaticResource CardTitle}"/>
                                         <Button x:Name="BtnCopyN" 
                                                 Content="Kopieren" 
+                                                Style="{StaticResource AccentButtonStyle}"
                                                 HorizontalAlignment="Right"
-                                                Padding="10,5"
+                                                Padding="12,5"
                                                 FontSize="12"
                                                 Click="BtnCopyN_Click"/>
                                     </Grid>
                                 </Border>
-                                <TextBox x:Name="TxtDiagnose" 
-                                         IsReadOnly="True"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         BorderThickness="0"
-                                         FontFamily="Segoe UI"
-                                         FontSize="14"
-                                         Padding="15"
-                                         Background="White"
-                                         Text=""
-                                         MinHeight="80"/>
-                            </StackPanel>
-                        </Border>
-                        
-                        <!-- Karte: Therapie -->
-                        <Border Background="White" 
-                                BorderBrush="#CCCCCC" 
-                                BorderThickness="1" 
-                                CornerRadius="4"
-                                Padding="0"
-                                Margin="0,0,0,15">
-                            <StackPanel>
-                                <Border Background="#F5F5F5" 
-                                        BorderBrush="#CCCCCC" 
-                                        BorderThickness="0,0,0,1"
-                                        Padding="15,10">
-                                    <Grid>
-                                        <TextBlock Text="Therapie" 
-                                                   FontSize="14" 
-                                                   FontWeight="SemiBold" 
-                                                   VerticalAlignment="Center"/>
-                                        <Button x:Name="BtnCopyT" 
-                                                Content="Kopieren" 
-                                                HorizontalAlignment="Right"
-                                                Padding="10,5"
-                                                FontSize="12"
-                                                Click="BtnCopyT_Click"/>
-                                    </Grid>
-                                </Border>
-                                <TextBox x:Name="TxtTherapie" 
-                                         IsReadOnly="True"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         BorderThickness="0"
-                                         FontFamily="Segoe UI"
-                                         FontSize="14"
-                                         Padding="15"
-                                         Background="White"
-                                         Text=""
-                                         MinHeight="80"/>
-                            </StackPanel>
-                        </Border>
-                        
-                        <!-- Karte: ICD-10 & Sonstiges (nur sichtbar wenn Inhalt vorhanden) -->
-                        <Border x:Name="BorderIcd" 
-                                Background="White" 
-                                BorderBrush="#CCCCCC" 
-                                BorderThickness="1" 
-                                CornerRadius="4"
-                                Padding="0"
-                                Visibility="Collapsed">
-                            <StackPanel>
-                                <Border Background="#F5F5F5" 
-                                        BorderBrush="#CCCCCC" 
-                                        BorderThickness="0,0,0,1"
-                                        Padding="15,10">
-                                    <Grid>
-                                        <TextBlock Text="ICD-10 &amp; Sonstiges" 
-                                                   FontSize="14" 
-                                                   FontWeight="SemiBold" 
-                                                   VerticalAlignment="Center"/>
-                                        <Button x:Name="BtnCopyIcd" 
-                                                Content="Kopieren" 
-                                                HorizontalAlignment="Right"
-                                                Padding="10,5"
-                                                FontSize="12"
-                                                Click="BtnCopyIcd_Click"/>
-                                    </Grid>
-                                </Border>
-                                <TextBox x:Name="TxtIcd" 
-                                         IsReadOnly="True"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         BorderThickness="0"
-                                         FontFamily="Segoe UI"
-                                         FontSize="14"
-                                         Padding="15"
-                                         Background="White"
-                                         Text=""
-                                         MinHeight="80"/>
+                                <TextBox x:Name="TxtDiagnose" Style="{StaticResource ResultTextBoxStyle}" Text=""/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -399,23 +279,32 @@
             </Grid>
         </Border>
         
-        <!-- Rechts: Letzte Notizen -->
+        <!-- ═══════════════════════════════════════════
+             Rechts: Letzte Notizen
+             ═══════════════════════════════════════════ -->
         <Border Grid.Column="2" 
-                Background="#FAFAFA" 
-                BorderBrush="#E0E0E0" 
-                BorderThickness="0,0,0,0"
-                Padding="15">
-            <StackPanel>
-                <TextBlock Text="Frühere Dokumentationen" 
-                           FontSize="16" 
-                           FontWeight="SemiBold" 
-                           Margin="0,0,0,10"/>
+                Background="{StaticResource BackgroundPage}" 
+                Padding="18,20">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,14">
+                    <TextBlock Text="Frühere Dokumentationen" Style="{StaticResource SectionTitle}" FontSize="16"/>
+                    <Ellipse Width="8" Height="8" Fill="{StaticResource AccentBlue}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
                 
-                <ListBox x:Name="LstNotes" 
+                <ListBox x:Name="LstNotes" Grid.Row="1"
                          SelectionChanged="LstNotes_SelectionChanged"
-                         Margin="0,0,0,10"/>
+                         Margin="0,0,0,12"
+                         Background="{StaticResource CardBackground}"
+                         BorderBrush="{StaticResource BorderLight}"
+                         BorderThickness="1"/>
                 
-                <StackPanel>
+                <StackPanel Grid.Row="2">
                     <Button x:Name="BtnCopyNote" 
                             Content="Kopieren" 
                             Style="{StaticResource NoteActionButtonStyle}"
@@ -437,7 +326,7 @@
                             HorizontalAlignment="Stretch"
                             Click="BtnDeleteNote_Click"/>
                 </StackPanel>
-            </StackPanel>
+            </Grid>
         </Border>
     </Grid>
 </Window>

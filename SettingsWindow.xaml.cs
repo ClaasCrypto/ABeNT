@@ -11,6 +11,7 @@ namespace ABeNT
         private string _openAiKey = "";
         private string _geminiKey = "";
         private string _claudeKey = "";
+        private string _currentSttProvider = "Deepgram";
 
         public SettingsWindow()
         {
@@ -36,12 +37,26 @@ namespace ABeNT
                 _geminiKey = settings.GeminiApiKey ?? "";
                 _claudeKey = settings.ClaudeApiKey ?? "";
                 _currentLlm = settings.SelectedLlm ?? "Claude";
+                _currentSttProvider = settings.SelectedSttProvider ?? "Deepgram";
 
-                if (TxtDeepgramKey != null)
-                    TxtDeepgramKey.Text = settings.DeepgramApiKey ?? "";
+                TxtDeepgramKey.Text = settings.DeepgramApiKey ?? "";
+                TxtAzureKey.Text = settings.AzureSpeechKey ?? "";
+                TxtAzureRegion.Text = string.IsNullOrWhiteSpace(settings.AzureSpeechRegion) ? "westeurope" : settings.AzureSpeechRegion;
+                TxtCustomEndpoint.Text = settings.CustomSttEndpoint ?? "";
+                TxtCustomApiKey.Text = settings.CustomSttApiKey ?? "";
 
                 ApplyLlmKeyToTextBox();
                 UpdateLlmKeyLabel();
+
+                CmbSttProvider.SelectionChanged -= CmbSttProvider_SelectionChanged;
+                CmbSttProvider.SelectedIndex = _currentSttProvider switch
+                {
+                    "Azure" => 1,
+                    "Custom" => 2,
+                    _ => 0
+                };
+                UpdateSttPanels();
+                CmbSttProvider.SelectionChanged += CmbSttProvider_SelectionChanged;
 
                 if (CmbLlm != null && CmbLlm.Items.Count >= 3)
                 {
@@ -59,6 +74,25 @@ namespace ABeNT
             {
                 MessageBox.Show($"Einstellungen konnten nicht geladen werden:\n{ex.Message}", "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        private void CmbSttProvider_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CmbSttProvider == null || CmbSttProvider.SelectedIndex < 0) return;
+            _currentSttProvider = CmbSttProvider.SelectedIndex switch
+            {
+                1 => "Azure",
+                2 => "Custom",
+                _ => "Deepgram"
+            };
+            UpdateSttPanels();
+        }
+
+        private void UpdateSttPanels()
+        {
+            PanelDeepgram.Visibility = _currentSttProvider == "Deepgram" ? Visibility.Visible : Visibility.Collapsed;
+            PanelAzure.Visibility = _currentSttProvider == "Azure" ? Visibility.Visible : Visibility.Collapsed;
+            PanelCustom.Visibility = _currentSttProvider == "Custom" ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void ApplyLlmKeyToTextBox()
@@ -119,14 +153,17 @@ namespace ABeNT
             try
             {
                 StoreCurrentKeyFromTextBox();
-                var settings = new AppSettings
-                {
-                    DeepgramApiKey = TxtDeepgramKey?.Text ?? "",
-                    SelectedLlm = _currentLlm,
-                    OpenAiApiKey = _openAiKey,
-                    GeminiApiKey = _geminiKey,
-                    ClaudeApiKey = _claudeKey
-                };
+                var settings = SettingsService.LoadSettings();
+                settings.SelectedSttProvider = _currentSttProvider;
+                settings.DeepgramApiKey = TxtDeepgramKey?.Text ?? "";
+                settings.AzureSpeechKey = TxtAzureKey?.Text ?? "";
+                settings.AzureSpeechRegion = TxtAzureRegion?.Text ?? "westeurope";
+                settings.CustomSttEndpoint = TxtCustomEndpoint?.Text ?? "";
+                settings.CustomSttApiKey = TxtCustomApiKey?.Text ?? "";
+                settings.SelectedLlm = _currentLlm;
+                settings.OpenAiApiKey = _openAiKey;
+                settings.GeminiApiKey = _geminiKey;
+                settings.ClaudeApiKey = _claudeKey;
                 SettingsService.SaveSettings(settings);
                 DialogResult = true;
                 Close();

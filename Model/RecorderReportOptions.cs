@@ -5,7 +5,12 @@ namespace ABeNT.Model
     /// </summary>
     public class RecorderReportOptions
     {
+        public string SelectedSttProvider { get; set; } = "Deepgram";
         public string DeepgramApiKey { get; set; } = string.Empty;
+        public string AzureSpeechKey { get; set; } = string.Empty;
+        public string AzureSpeechRegion { get; set; } = "westeurope";
+        public string CustomSttEndpoint { get; set; } = string.Empty;
+        public string CustomSttApiKey { get; set; } = string.Empty;
         /// <summary>Selected LLM: "ChatGPT", "Gemini", or "Claude".</summary>
         public string SelectedLlm { get; set; } = "Claude";
         public string OpenAiApiKey { get; set; } = string.Empty;
@@ -16,6 +21,9 @@ namespace ABeNT.Model
         public bool IncludeTherapie { get; set; } = true;
         public bool IncludeIcd10 { get; set; }
         public string? FormId { get; set; }
+
+        /// <summary>Recording mode: "Neupatient" or "Kontrolltermin".</summary>
+        public string RecordingMode { get; set; } = "Neupatient";
 
         /// <summary>Returns the API key for the currently selected LLM.</summary>
         public string GetLlmApiKey()

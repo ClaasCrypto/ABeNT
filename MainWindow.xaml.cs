@@ -16,8 +16,6 @@ namespace ABeNT
 {
     public partial class MainWindow : Window
     {
-        private string _fullAnamneseText = "";
-
         public MainWindow()
         {
             try
@@ -38,7 +36,6 @@ namespace ABeNT
         {
             var settings = SettingsService.LoadSettings();
             ChkBefund.IsChecked = settings.IncludeBefund;
-            ChkTherapie.IsChecked = settings.IncludeTherapie;
             ChkIcd10.IsChecked = settings.SuggestIcd10;
             LoadSubjectForms();
             LoadDocumentations();
@@ -49,7 +46,6 @@ namespace ABeNT
         {
             var settings = SettingsService.LoadSettings();
             settings.IncludeBefund = ChkBefund.IsChecked ?? false;
-            settings.IncludeTherapie = ChkTherapie.IsChecked ?? false;
             settings.SuggestIcd10 = ChkIcd10.IsChecked ?? false;
             SettingsService.SaveSettings(settings);
         }
@@ -113,14 +109,19 @@ namespace ABeNT
             var settings = SettingsService.LoadSettings();
             var options = new RecorderReportOptions
             {
+                SelectedSttProvider = settings.SelectedSttProvider ?? "Deepgram",
                 DeepgramApiKey = settings.DeepgramApiKey ?? string.Empty,
+                AzureSpeechKey = settings.AzureSpeechKey ?? string.Empty,
+                AzureSpeechRegion = settings.AzureSpeechRegion ?? "westeurope",
+                CustomSttEndpoint = settings.CustomSttEndpoint ?? string.Empty,
+                CustomSttApiKey = settings.CustomSttApiKey ?? string.Empty,
                 SelectedLlm = settings.SelectedLlm ?? "Claude",
                 OpenAiApiKey = settings.OpenAiApiKey ?? string.Empty,
                 GeminiApiKey = settings.GeminiApiKey ?? string.Empty,
                 ClaudeApiKey = settings.ClaudeApiKey ?? string.Empty,
-                Gender = (CmbGender.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString() ?? "Neutral",
+                Gender = "Neutral",
                 IncludeBefund = ChkBefund.IsChecked ?? false,
-                IncludeTherapie = ChkTherapie.IsChecked ?? false,
+                IncludeTherapie = false,
                 IncludeIcd10 = ChkIcd10.IsChecked ?? false,
                 FormId = (CmbSubjectForm.SelectedItem as Model.SubjectForm)?.Id
             };
@@ -320,68 +321,115 @@ namespace ABeNT
 
         private void ParseAndDisplayResult(string fullText)
         {
-            // Leere alle Felder zuerst
-            _fullAnamneseText = "";
             TxtAnamnese.Text = "";
             TxtBefund.Text = "";
             TxtDiagnose.Text = "";
-            TxtTherapie.Text = "";
-            TxtIcd.Text = "";
-            BorderIcd.Visibility = Visibility.Collapsed;
-            if (ChkErstanamnese != null)
-            {
-                ChkErstanamnese.IsEnabled = false;
-                ChkErstanamnese.IsChecked = false;
-            }
 
             if (string.IsNullOrWhiteSpace(fullText))
             {
                 return;
             }
 
-            // Regex-Patterns für A, Be, N, T (ICD-10 erscheint nur in N als Code in Klammern, keine eigene Sektion)
-            var patternA = @"\*\*A\*\*\s*[-–]?\s*(.*?)(?=\*\*Be\*\*|\*\*N\*\*|\*\*T\*\*|$)";
-            var patternBe = @"\*\*Be\*\*\s*[-–]?\s*(.*?)(?=\*\*N\*\*|\*\*T\*\*|$)";
-            var patternN = @"\*\*N\*\*\s*[-–]?\s*(.*?)(?=\*\*T\*\*|$)";
-            var patternT = @"\*\*T\*\*\s*[-–]?\s*(.*?)(?=\*\*ICD-10\*\*|$)";
+            var patternA = @"\*\*A\*\*\s*[-–]?\s*(.*?)(?=\*\*Be\*\*|\*\*N\*\*|\*\*T\*\*|\*\*ICD-10\*\*|$)";
+            var patternBe = @"\*\*Be\*\*\s*[-–]?\s*(.*?)(?=\*\*N\*\*|\*\*T\*\*|\*\*ICD-10\*\*|$)";
+            var patternN = @"\*\*N\*\*\s*[-–]?\s*(.*?)(?=\*\*T\*\*|\*\*ICD-10\*\*|$)";
+            var patternIcd = @"\*\*ICD-10\*\*\s*[-–]?\s*(.*?)$";
 
-            // Extrahiere Anamnese (ohne "ANAMNESE"/"Jetziges Leiden:" – nur eine gültige Variante)
             var matchA = Regex.Match(fullText, patternA, RegexOptions.Singleline | RegexOptions.IgnoreCase);
             if (matchA.Success && matchA.Groups.Count > 1)
             {
-                _fullAnamneseText = StripAnamneseHeaders(CleanText(matchA.Groups[1].Value));
-                if (ChkErstanamnese != null)
-                {
-                    ChkErstanamnese.IsEnabled = true;
-                    UpdateAnamneseDisplay();
-                }
-                else
-                {
-                    TxtAnamnese.Text = _fullAnamneseText;
-                }
+                TxtAnamnese.Text = StripAnamneseHeaders(CleanText(matchA.Groups[1].Value));
             }
 
-            // Extrahiere Befund
             var matchBe = Regex.Match(fullText, patternBe, RegexOptions.Singleline | RegexOptions.IgnoreCase);
             if (matchBe.Success && matchBe.Groups.Count > 1)
             {
                 TxtBefund.Text = CleanText(matchBe.Groups[1].Value);
             }
 
-            // Extrahiere Diagnose
+            // Diagnosen und ICD-10 in einer Karte zusammenführen
+            string diagnosen = "";
             var matchN = Regex.Match(fullText, patternN, RegexOptions.Singleline | RegexOptions.IgnoreCase);
             if (matchN.Success && matchN.Groups.Count > 1)
+                diagnosen = CleanText(matchN.Groups[1].Value);
+
+            var matchIcd = Regex.Match(fullText, patternIcd, RegexOptions.Singleline | RegexOptions.IgnoreCase);
+            if (matchIcd.Success && matchIcd.Groups.Count > 1)
             {
-                TxtDiagnose.Text = CleanText(matchN.Groups[1].Value);
+                string icdText = CleanText(matchIcd.Groups[1].Value);
+                if (!string.IsNullOrWhiteSpace(icdText))
+                    diagnosen = MergeDiagnosenWithIcd(diagnosen, icdText);
             }
 
-            // Extrahiere Therapie (ohne ICD-10 in der Karte)
-            var matchT = Regex.Match(fullText, patternT, RegexOptions.Singleline | RegexOptions.IgnoreCase);
-            if (matchT.Success && matchT.Groups.Count > 1)
+            TxtDiagnose.Text = diagnosen;
+        }
+
+        /// <summary>
+        /// Merges the N (diagnoses) and ICD-10 blocks into one display:
+        /// each diagnosis line gets its ICD-10 code appended in parentheses.
+        /// </summary>
+        private static string MergeDiagnosenWithIcd(string diagnosen, string icd10)
+        {
+            if (string.IsNullOrWhiteSpace(diagnosen))
+                return icd10;
+            if (string.IsNullOrWhiteSpace(icd10))
+                return diagnosen;
+
+            var diagLines = diagnosen.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            var icdLines = icd10.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+            var icdMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string line in icdLines)
             {
-                string therapie = CleanText(matchT.Groups[1].Value);
-                TxtTherapie.Text = StripIcd10FromTherapie(therapie);
+                string trimmed = line.Trim();
+                if (string.IsNullOrEmpty(trimmed)) continue;
+                // ICD-10 lines: "M54.5 Lumbago" or "M54.5G Lumbago re." — extract code
+                var m = Regex.Match(trimmed, @"^([A-Z]\d{2}(?:\.\d[\d\-]*)?[GVAZ]?(?:\s*[RLB])?)\s+(.+)$", RegexOptions.IgnoreCase);
+                if (m.Success)
+                {
+                    string code = m.Groups[1].Value.Trim();
+                    string diagText = m.Groups[2].Value.Trim();
+                    icdMap[diagText] = code;
+                }
             }
+
+            var result = new List<string>();
+            foreach (string line in diagLines)
+            {
+                string trimmed = line.Trim();
+                if (string.IsNullOrEmpty(trimmed)) continue;
+
+                string bestCode = "";
+                int bestLen = 0;
+                foreach (var kv in icdMap)
+                {
+                    if (trimmed.Contains(kv.Key, StringComparison.OrdinalIgnoreCase) ||
+                        kv.Key.Contains(trimmed, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (kv.Key.Length > bestLen)
+                        {
+                            bestLen = kv.Key.Length;
+                            bestCode = kv.Value;
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(bestCode) && icdMap.Count > 0)
+                {
+                    // Positional fallback: match by line index
+                    int idx = Array.IndexOf(diagLines, line);
+                    if (idx >= 0 && idx < icdLines.Length)
+                    {
+                        var m = Regex.Match(icdLines[idx].Trim(), @"^([A-Z]\d{2}(?:\.\d[\d\-]*)?[GVAZ]?(?:\s*[RLB])?)\s+", RegexOptions.IgnoreCase);
+                        if (m.Success)
+                            bestCode = m.Groups[1].Value.Trim();
+                    }
+                }
+
+                result.Add(string.IsNullOrEmpty(bestCode) ? trimmed : $"{trimmed} ({bestCode})");
+            }
+
+            return string.Join(Environment.NewLine, result);
         }
 
         /// <summary>Entfernt die Zeile "ANAMNESE" und die Überschrift "Jetziges Leiden:" aus dem Anamnese-Text (nur eine gültige Variante).</summary>
@@ -406,59 +454,6 @@ namespace ABeNT
             string joined = string.Join(Environment.NewLine, result).Trim();
             joined = joined.TrimStart(':', ' ').TrimStart('\r', '\n');
             return joined;
-        }
-
-        /// <summary>Entfernt ICD-10-Bereich und alle Diagnose-Codes aus dem Therapie-Text (Überschrift **ICD-10**, Codes in Klammern oder eigenständig).</summary>
-        private static string StripIcd10FromTherapie(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text)) return text;
-            var icdCodeInLine = new Regex(@"\s*\([A-Z][0-9]{2}(\.[0-9\-]+)?\)\s*");
-            var standaloneIcdLine = new Regex(@"^\s*[A-Z][0-9]{2}(\.[0-9\-]+)?\s*$", RegexOptions.Multiline);
-            text = icdCodeInLine.Replace(text, " ");
-            text = standaloneIcdLine.Replace(text, "");
-            var lines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-            var filtered = new List<string>();
-            foreach (string line in lines)
-            {
-                string t = line.Trim();
-                if (string.Equals(t, "**ICD-10**", StringComparison.OrdinalIgnoreCase)) continue;
-                if (string.IsNullOrWhiteSpace(t) && filtered.Count > 0 && filtered[filtered.Count - 1].Trim().Length == 0) continue;
-                filtered.Add(line);
-            }
-            text = string.Join(Environment.NewLine, filtered);
-            return Regex.Replace(text, @"[ \t]+", " ").Trim();
-        }
-
-        private void UpdateAnamneseDisplay()
-        {
-            if (TxtAnamnese == null) return;
-            TxtAnamnese.Text = (ChkErstanamnese?.IsChecked == true)
-                ? _fullAnamneseText
-                : GetShortAnamnese(_fullAnamneseText);
-        }
-
-        private void ChkErstanamnese_Changed(object sender, RoutedEventArgs e)
-        {
-            UpdateAnamneseDisplay();
-        }
-
-        /// <summary>Liefert den Anamnese-Text nur bis vor die erste Rubrik (Vorerkrankungen, Dauermedikation, Allergien, vegetative Anamnese, Noxen/Sozialanamnese).</summary>
-        private static string GetShortAnamnese(string full)
-        {
-            if (string.IsNullOrWhiteSpace(full)) return full;
-            var lines = full.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-            var sectionStarts = new[] { "Vorerkrankungen", "Dauermedikation", "Allergien", "Vegetative Anamnese", "Noxen", "Sozialanamnese" };
-            int cutIndex = lines.Length;
-            for (int i = 0; i < lines.Length; i++)
-            {
-                string trimmed = lines[i].TrimStart();
-                if (sectionStarts.Any(s => trimmed.StartsWith(s, StringComparison.OrdinalIgnoreCase)))
-                {
-                    cutIndex = i;
-                    break;
-                }
-            }
-            return string.Join(Environment.NewLine, lines.Take(cutIndex)).TrimEnd();
         }
 
         private string CleanText(string text)
@@ -489,16 +484,6 @@ namespace ABeNT
         private async void BtnCopyN_Click(object sender, RoutedEventArgs e)
         {
             await CopyToClipboardWithFeedback(TxtDiagnose.Text, BtnCopyN);
-        }
-
-        private async void BtnCopyT_Click(object sender, RoutedEventArgs e)
-        {
-            await CopyToClipboardWithFeedback(TxtTherapie.Text, BtnCopyT);
-        }
-
-        private async void BtnCopyIcd_Click(object sender, RoutedEventArgs e)
-        {
-            await CopyToClipboardWithFeedback(TxtIcd.Text, BtnCopyIcd);
         }
 
         private async Task CopyToClipboardWithFeedback(string text, Button button)

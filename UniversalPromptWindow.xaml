@@ -1,23 +1,39 @@
 <Window x:Class="ABeNT.UniversalPromptWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Universal-Prompt bearbeiten" Height="450" Width="600"
+        Title="Universal-Prompt bearbeiten" Height="470" Width="620"
         WindowStartupLocation="CenterOwner"
-        MinHeight="350" MinWidth="500">
-    <Grid Margin="15">
+        MinHeight="350" MinWidth="500"
+        Background="{StaticResource BackgroundPage}">
+    <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <TextBlock Grid.Row="0" Text="Dieser Text gilt für alle Berichtsformulare. Änderung nur mit doppelter Bestätigung."
-                   FontSize="12" Foreground="#666666" TextWrapping="Wrap" Margin="0,0,0,8"/>
+        
+        <!-- Hinweis mit geometrischem Akzent -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+            <Rectangle Width="4" Height="14" Fill="{StaticResource AccentYellow}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+            <TextBlock Text="Dieser Text gilt für alle Berichtsformulare. Änderung nur mit doppelter Bestätigung."
+                       FontSize="12" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap"/>
+        </StackPanel>
+        
         <TextBox x:Name="TxtUniversalPrompt" Grid.Row="1"
-                 Padding="8" FontSize="12" TextWrapping="Wrap" AcceptsReturn="True"
-                 VerticalScrollBarVisibility="Auto" Margin="0,0,0,15"/>
+                 Style="{StaticResource BauhausTextBoxStyle}"
+                 Padding="12" FontSize="13" TextWrapping="Wrap" AcceptsReturn="True"
+                 VerticalScrollBarVisibility="Auto" Margin="0,0,0,18"/>
+        
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="BtnSave" Content="Speichern" Width="100" Height="30" Margin="0,0,8,0" Click="BtnSave_Click"/>
-            <Button x:Name="BtnCancel" Content="Abbrechen" Width="100" Height="30" Click="BtnCancel_Click"/>
+            <Button x:Name="BtnSave" Content="Speichern"
+                    Style="{StaticResource FilledAccentButtonStyle}"
+                    Padding="20,8"
+                    Margin="0,0,10,0"
+                    Click="BtnSave_Click"/>
+            <Button x:Name="BtnCancel" Content="Abbrechen"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    Padding="20,8"
+                    Click="BtnCancel_Click"/>
         </StackPanel>
     </Grid>
 </Window>

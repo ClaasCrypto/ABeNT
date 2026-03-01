@@ -4,74 +4,89 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Einstellungen - API Keys" Height="320" Width="500"
+        Title="Einstellungen" Height="520" Width="540"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize">
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <!-- Deepgram API Key (essentiell) -->
-        <TextBlock Grid.Row="0" 
-                   Text="Deepgram API Key (essentiell):" 
-                   FontSize="13" 
-                   FontWeight="SemiBold"
-                   Margin="0,0,0,5"/>
-        <TextBox x:Name="TxtDeepgramKey" 
-                 Grid.Row="1"
-                 Margin="0,0,0,15"
-                 FontSize="12"
-                 Padding="8,6"/>
-        
-        <!-- LLM wählen -->
-        <TextBlock Grid.Row="2" 
-                   Text="LLM wählen:" 
-                   FontSize="13" 
-                   FontWeight="SemiBold"
-                   Margin="0,0,0,5"/>
-        <ComboBox x:Name="CmbLlm" Grid.Row="3"
-                  Padding="8,6" Margin="0,0,0,5"
-                  MinHeight="28" SelectionChanged="CmbLlm_SelectionChanged">
-            <ComboBoxItem Content="ChatGPT (OpenAI)"/>
-            <ComboBoxItem Content="Gemini (Google)"/>
-            <ComboBoxItem Content="Claude (Anthropic)" IsSelected="True"/>
-        </ComboBox>
-        
-        <!-- API Key für gewähltes LLM -->
-        <TextBlock x:Name="TxtLlmKeyLabel" Grid.Row="4" 
-                   Text="Anthropic Claude API Key:" 
-                   FontSize="13" 
-                   FontWeight="SemiBold"
-                   Margin="0,0,0,5"/>
-        <TextBox x:Name="TxtLlmKey" 
-                 Grid.Row="5"
-                 Margin="0,0,0,15"
-                 FontSize="12"
-                 Padding="8,6"/>
-        
-        <!-- Buttons -->
-        <StackPanel Grid.Row="6" 
-                    Orientation="Horizontal" 
-                    HorizontalAlignment="Right">
-            <Button x:Name="BtnSave" 
-                    Content="Speichern" 
-                    Width="100" 
-                    Height="30"
-                    Margin="5,0"
-                    Click="BtnSave_Click"/>
-            <Button x:Name="BtnCancel" 
-                    Content="Abbrechen" 
-                    Width="100" 
-                    Height="30"
-                    Margin="5,0"
-                    Click="BtnCancel_Click"/>
+        ResizeMode="NoResize"
+        Background="{StaticResource BackgroundPage}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,20,24,20">
+        <StackPanel>
+
+            <!-- ═══════════════════════════════════════════════
+                 Speech-to-Text Provider
+                 ═══════════════════════════════════════════════ -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <Rectangle Width="4" Height="16" Fill="{StaticResource AccentBlue}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Speech-to-Text Anbieter:" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimary}"/>
+            </StackPanel>
+            <ComboBox x:Name="CmbSttProvider" Padding="10,8" Margin="0,0,0,10"
+                      MinHeight="32" SelectionChanged="CmbSttProvider_SelectionChanged">
+                <ComboBoxItem Content="Deepgram"/>
+                <ComboBoxItem Content="Azure Speech Service"/>
+                <ComboBoxItem Content="Custom API"/>
+            </ComboBox>
+
+            <!-- Deepgram fields -->
+            <StackPanel x:Name="PanelDeepgram" Margin="0,0,0,14">
+                <TextBlock Text="Deepgram API Key:" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                <TextBox x:Name="TxtDeepgramKey" Style="{StaticResource BauhausTextBoxStyle}"/>
+            </StackPanel>
+
+            <!-- Azure fields -->
+            <StackPanel x:Name="PanelAzure" Visibility="Collapsed" Margin="0,0,0,14">
+                <TextBlock Text="Azure Speech Key:" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                <TextBox x:Name="TxtAzureKey" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8"/>
+                <TextBlock Text="Azure Region:" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                <TextBox x:Name="TxtAzureRegion" Style="{StaticResource BauhausTextBoxStyle}" Text="westeurope"/>
+            </StackPanel>
+
+            <!-- Custom fields -->
+            <StackPanel x:Name="PanelCustom" Visibility="Collapsed" Margin="0,0,0,14">
+                <TextBlock Text="Endpoint URL:" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                <TextBox x:Name="TxtCustomEndpoint" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8"/>
+                <TextBlock Text="API Key (optional):" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                <TextBox x:Name="TxtCustomApiKey" Style="{StaticResource BauhausTextBoxStyle}"/>
+                <TextBlock Text="Audio wird als POST body (audio/wav) gesendet. Auth via Bearer-Token."
+                           FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,0"
+                           TextWrapping="Wrap" FontStyle="Italic"/>
+            </StackPanel>
+
+            <!-- Trennlinie -->
+            <Rectangle Height="1" Fill="{StaticResource BorderLight}" Margin="0,4,0,14"/>
+
+            <!-- ═══════════════════════════════════════════════
+                 LLM Provider
+                 ═══════════════════════════════════════════════ -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <Rectangle Width="4" Height="16" Fill="{StaticResource AccentCoral}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <TextBlock Text="LLM wählen:" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimary}"/>
+            </StackPanel>
+            <ComboBox x:Name="CmbLlm" Padding="10,8" Margin="0,0,0,10"
+                      MinHeight="32" SelectionChanged="CmbLlm_SelectionChanged">
+                <ComboBoxItem Content="ChatGPT (OpenAI)"/>
+                <ComboBoxItem Content="Gemini (Google)"/>
+                <ComboBoxItem Content="Claude (Anthropic)" IsSelected="True"/>
+            </ComboBox>
+
+            <TextBlock x:Name="TxtLlmKeyLabel" Text="Anthropic Claude API Key:"
+                       FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+            <TextBox x:Name="TxtLlmKey" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,20"/>
+
+            <!-- ═══════════════════════════════════════════════
+                 Buttons
+                 ═══════════════════════════════════════════════ -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
+                <Button x:Name="BtnSave" Content="Speichern"
+                        Style="{StaticResource FilledAccentButtonStyle}"
+                        Padding="20,8" Margin="0,0,10,0"
+                        Click="BtnSave_Click"/>
+                <Button x:Name="BtnCancel" Content="Abbrechen"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Padding="20,8"
+                        Click="BtnCancel_Click"/>
+            </StackPanel>
+
         </StackPanel>
-    </Grid>
+    </ScrollViewer>
 </Window>

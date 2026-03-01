@@ -3,6 +3,252 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <!-- ══════════════════════════════════════════════════════════
+             Bauhaus Design Tokens
+             ══════════════════════════════════════════════════════════ -->
+
+        <!-- Hintergrund & Text -->
+        <SolidColorBrush x:Key="BackgroundPage"       Color="#FFF9F0"/>
+        <SolidColorBrush x:Key="TextPrimary"           Color="#000609"/>
+        <SolidColorBrush x:Key="TextSecondary"         Color="#5A5A5A"/>
+
+        <!-- Akzentfarben -->
+        <SolidColorBrush x:Key="Accent"                Color="#2563EB"/>
+        <SolidColorBrush x:Key="AccentHover"           Color="#1D4FD8"/>
+        <SolidColorBrush x:Key="AccentRecord"          Color="#E63B2E"/>
+        <SolidColorBrush x:Key="AccentRecordHover"     Color="#C62E22"/>
+        <SolidColorBrush x:Key="AccentCoral"           Color="#E63B2E"/>
+        <SolidColorBrush x:Key="AccentYellow"          Color="#F5C542"/>
+        <SolidColorBrush x:Key="AccentPink"            Color="#F2A7BB"/>
+        <SolidColorBrush x:Key="AccentBlue"            Color="#2563EB"/>
+        <SolidColorBrush x:Key="FooterBackground"      Color="#2563EB"/>
+        <SolidColorBrush x:Key="Highlight"             Color="#F5C542"/>
+
+        <!-- Oberflächen -->
+        <SolidColorBrush x:Key="CardBackground"        Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="CardHeaderBackground"  Color="#FFF4E6"/>
+        <SolidColorBrush x:Key="BorderLight"           Color="#D4D0C8"/>
+        <SolidColorBrush x:Key="InputBackground"       Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="InputBorder"           Color="#C8C4BC"/>
+        <SolidColorBrush x:Key="InputBorderFocused"    Color="#2563EB"/>
+
+        <!-- ══════════════════════════════════════════════════════════
+             Globale Basis-Styles
+             ══════════════════════════════════════════════════════════ -->
+
+        <!-- Noto Sans global (fällt auf Segoe UI zurück falls nicht installiert) -->
+        <Style TargetType="{x:Type Window}">
+            <Setter Property="FontFamily" Value="Noto Sans, Segoe UI"/>
+            <Setter Property="FontSize"   Value="14"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+        </Style>
+
+        <!-- ══════════════════════════════════════════════════════════
+             Button-Styles (Bauhaus: abgerundete Pill-Form, Outline)
+             ══════════════════════════════════════════════════════════ -->
+
+        <!-- Primärer Akzent-Button (Outline Pill) -->
+        <Style x:Key="AccentButtonStyle" TargetType="Button">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"       Value="{StaticResource Accent}"/>
+            <Setter Property="BorderBrush"      Value="{StaticResource Accent}"/>
+            <Setter Property="BorderThickness"  Value="1.5"/>
+            <Setter Property="Padding"          Value="16,8"/>
+            <Setter Property="FontSize"         Value="13"/>
+            <Setter Property="FontWeight"       Value="SemiBold"/>
+            <Setter Property="Cursor"           Value="Hand"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="20"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background"   Value="{StaticResource Accent}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background"   Value="{StaticResource AccentHover}"/>
+                                <Setter TargetName="border" Property="BorderBrush"   Value="{StaticResource AccentHover}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Gefüllter Primär-Button (für Haupt-CTAs) -->
+        <Style x:Key="FilledAccentButtonStyle" TargetType="Button">
+            <Setter Property="Background"      Value="{StaticResource Accent}"/>
+            <Setter Property="Foreground"       Value="White"/>
+            <Setter Property="BorderBrush"      Value="{StaticResource Accent}"/>
+            <Setter Property="BorderThickness"  Value="1.5"/>
+            <Setter Property="Padding"          Value="20,10"/>
+            <Setter Property="FontSize"         Value="14"/>
+            <Setter Property="FontWeight"       Value="SemiBold"/>
+            <Setter Property="Cursor"           Value="Hand"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="20"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background"   Value="{StaticResource AccentHover}"/>
+                                <Setter TargetName="border" Property="BorderBrush"   Value="{StaticResource AccentHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background"   Value="#1A3FB0"/>
+                                <Setter TargetName="border" Property="BorderBrush"   Value="#1A3FB0"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Record-Button (Coral, gefüllt, auffällig) -->
+        <Style x:Key="RecordButtonStyle" TargetType="Button">
+            <Setter Property="Background"      Value="{StaticResource AccentRecord}"/>
+            <Setter Property="Foreground"       Value="White"/>
+            <Setter Property="BorderBrush"      Value="{StaticResource AccentRecord}"/>
+            <Setter Property="BorderThickness"  Value="2"/>
+            <Setter Property="Padding"          Value="30,16"/>
+            <Setter Property="FontSize"         Value="17"/>
+            <Setter Property="FontWeight"       Value="Bold"/>
+            <Setter Property="Cursor"           Value="Hand"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="24"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background"   Value="{StaticResource AccentRecordHover}"/>
+                                <Setter TargetName="border" Property="BorderBrush"   Value="{StaticResource AccentRecordHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background"   Value="#A82218"/>
+                                <Setter TargetName="border" Property="BorderBrush"   Value="#A82218"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Subtiler / sekundärer Button (grau outline) -->
+        <Style x:Key="SubtleButtonStyle" TargetType="Button">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"       Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush"      Value="{StaticResource BorderLight}"/>
+            <Setter Property="BorderThickness"  Value="1.5"/>
+            <Setter Property="Padding"          Value="16,8"/>
+            <Setter Property="FontSize"         Value="13"/>
+            <Setter Property="FontWeight"       Value="Normal"/>
+            <Setter Property="Cursor"           Value="Hand"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="20"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background"   Value="{StaticResource CardHeaderBackground}"/>
+                                <Setter TargetName="border" Property="BorderBrush"   Value="{StaticResource TextSecondary}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ══════════════════════════════════════════════════════════
+             TextBox Style (abgerundete Ecken, warmer Rahmen)
+             ══════════════════════════════════════════════════════════ -->
+
+        <Style x:Key="BauhausTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Background"      Value="{StaticResource InputBackground}"/>
+            <Setter Property="Foreground"       Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush"      Value="{StaticResource InputBorder}"/>
+            <Setter Property="BorderThickness"  Value="1"/>
+            <Setter Property="Padding"          Value="10,8"/>
+            <Setter Property="FontSize"         Value="13"/>
+            <Setter Property="CaretBrush"       Value="{StaticResource TextPrimary}"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource InputBorderFocused}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource TextSecondary}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Application.Resources>
 </Application>

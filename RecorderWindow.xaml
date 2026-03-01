@@ -4,10 +4,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Aufnahme" Height="320" Width="840"
+        Title="Aufnahme" Height="340" Width="840"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize">
-    <Grid Margin="20">
+        ResizeMode="NoResize"
+        Background="{StaticResource BackgroundPage}">
+    <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -17,40 +18,80 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
-        <!-- Mikrofon / Eingangskanal -->
-        <TextBlock Grid.Row="0" Text="Eingangskanal (Mikrofon):" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,5"/>
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <!-- Mikrofon-Label -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <Ellipse Width="10" Height="10" Fill="{StaticResource AccentCoral}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Eingangskanal (Mikrofon):" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+            </StackPanel>
+            <!-- Geschlecht-Label -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <TextBlock Text="Geschlecht:" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <ComboBox x:Name="CmbGender" MinWidth="120" Padding="10,6" VerticalAlignment="Center">
+                    <ComboBoxItem Content="Neutral" IsSelected="True"/>
+                    <ComboBoxItem Content="Männlich"/>
+                    <ComboBoxItem Content="Weiblich"/>
+                </ComboBox>
+            </StackPanel>
+        </Grid>
+
         <ComboBox x:Name="CmbMicrophones" Grid.Row="1"
-                  Padding="8,6" Margin="0,0,0,15"
-                  MinHeight="28" MinWidth="200"
+                  Padding="10,8" Margin="0,0,0,18"
+                  MinHeight="32" MinWidth="200"
                   SelectionChanged="CmbMicrophones_SelectionChanged"/>
         
-        <!-- Audio-Pegel -->
-        <TextBlock Grid.Row="2" Text="Pegel:" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,5"/>
-        <ProgressBar x:Name="PbAudioLevel" Grid.Row="3"
-                     Minimum="0" Maximum="100" Value="0"
-                     Height="18" Margin="0,0,0,15"/>
+        <TextBlock Grid.Row="2" Text="Pegel:" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6"/>
         
-        <!-- Status -->
+        <!-- Gestylter Pegel-Balken -->
+        <Border Grid.Row="3" CornerRadius="6" Background="#F0EDE6" Height="22" Margin="0,0,0,18" ClipToBounds="True">
+            <ProgressBar x:Name="PbAudioLevel"
+                         Minimum="0" Maximum="100" Value="0"
+                         Height="22"
+                         Background="Transparent"
+                         Foreground="{StaticResource AccentBlue}"
+                         BorderThickness="0"/>
+        </Border>
+        
         <TextBlock x:Name="TxtStatus" Grid.Row="4"
                    Text="Bereit – Aufnahme starten."
-                   FontSize="13" Foreground="#666666"
+                   FontSize="14" Foreground="{StaticResource TextSecondary}"
                    VerticalAlignment="Center" TextAlignment="Center"/>
         
-        <!-- Buttons: Start, Pause/Resume, Finish, Stop -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,15,0,0">
-            <Button x:Name="BtnStart" Content="Aufnahme starten"
-                    Width="130" Height="36" Margin="0,0,10,0"
-                    Background="#D13438" Foreground="White" FontWeight="SemiBold"
-                    Click="BtnStart_Click"/>
-            <Button x:Name="BtnPauseResume" Content="Pause"
-                    Width="90" Height="36" Margin="0,0,10,0"
-                    IsEnabled="False" Click="BtnPauseResume_Click"/>
-            <Button x:Name="BtnFinish" Content="Beenden &amp; Auswerten"
-                    Width="160" Height="36" Margin="0,0,10,0"
-                    IsEnabled="False" Click="BtnFinish_Click"/>
-            <Button x:Name="BtnStop" Content="Abbrechen"
-                    Width="100" Height="36"
-                    Visibility="Collapsed" Click="BtnStop_Click"/>
+        <StackPanel Grid.Row="5" HorizontalAlignment="Center" Margin="0,18,0,0">
+            <StackPanel x:Name="PanelStartButtons" Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button x:Name="BtnStartNeu" Content="● Neupatient starten"
+                        Style="{StaticResource RecordButtonStyle}"
+                        Padding="24,12"
+                        FontSize="14"
+                        Click="BtnStartNeu_Click"/>
+                <Button x:Name="BtnStartKontrolle" Content="● Kontrolltermin starten"
+                        Style="{StaticResource RecordButtonStyle}"
+                        Padding="24,12"
+                        FontSize="14"
+                        Margin="10,0,0,0"
+                        Click="BtnStartKontrolle_Click"/>
+            </StackPanel>
+            <StackPanel x:Name="PanelRecordingButtons" Orientation="Horizontal" HorizontalAlignment="Center"
+                        Visibility="Collapsed">
+                <Button x:Name="BtnPauseResume" Content="Pause"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Padding="16,10"
+                        IsEnabled="False"
+                        Click="BtnPauseResume_Click"/>
+                <Button x:Name="BtnFinish" Content="Beenden &amp; Auswerten"
+                        Style="{StaticResource FilledAccentButtonStyle}"
+                        Padding="20,10" Margin="10,0,0,0"
+                        IsEnabled="False"
+                        Click="BtnFinish_Click"/>
+                <Button x:Name="BtnStop" Content="Abbrechen"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Padding="16,10" Margin="10,0,0,0"
+                        Visibility="Collapsed" Click="BtnStop_Click"/>
+            </StackPanel>
         </StackPanel>
     </Grid>
 </Window>

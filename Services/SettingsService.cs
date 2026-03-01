@@ -6,7 +6,13 @@ namespace ABeNT.Services
 {
     public class AppSettings
     {
+        /// <summary>STT provider: "Deepgram", "Azure", or "Custom".</summary>
+        public string SelectedSttProvider { get; set; } = "Deepgram";
         public string DeepgramApiKey { get; set; } = string.Empty;
+        public string AzureSpeechKey { get; set; } = string.Empty;
+        public string AzureSpeechRegion { get; set; } = "westeurope";
+        public string CustomSttEndpoint { get; set; } = string.Empty;
+        public string CustomSttApiKey { get; set; } = string.Empty;
         /// <summary>Selected LLM: "ChatGPT", "Gemini", or "Claude".</summary>
         public string SelectedLlm { get; set; } = "Claude";
         public string OpenAiApiKey { get; set; } = string.Empty;

@@ -6,80 +6,124 @@
         mc:Ignorable="d"
         Title="Berichtsformulare verwalten" Height="680" Width="960"
         WindowStartupLocation="CenterOwner"
-        MinHeight="500" MinWidth="700">
-    <Grid Margin="15">
+        MinHeight="500" MinWidth="700"
+        Background="{StaticResource BackgroundPage}">
+    <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
-        <!-- Oben: Universal-Prompt -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,15">
+        <!-- Universal-Prompt Button -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,18">
+            <Polygon Points="0,10 5,0 10,10" Fill="{StaticResource AccentYellow}" Margin="0,0,10,0" VerticalAlignment="Center"/>
             <Button x:Name="BtnUniversalPrompt" Content="Universal-Prompt anzeigen / bearbeiten"
-                    Padding="10,6" HorizontalAlignment="Left"
+                    Style="{StaticResource AccentButtonStyle}"
+                    Padding="14,8"
                     Click="BtnUniversalPrompt_Click"/>
         </StackPanel>
         
-        <!-- Mitte: Liste links, Detail rechts -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" MinWidth="180"/>
+                <ColumnDefinition Width="230" MinWidth="180"/>
                 <ColumnDefinition Width="*" MinWidth="400"/>
             </Grid.ColumnDefinitions>
             
-            <!-- Links: Formulare-Liste -->
-            <Border Grid.Column="0" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0" Padding="0,0,15,0">
-                <StackPanel>
-                    <TextBlock Text="Berichtsformulare" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <ListBox x:Name="LstForms" DisplayMemberPath="DisplayName"
-                             SelectionChanged="LstForms_SelectionChanged"
-                             MinHeight="200" Margin="0,0,0,10"/>
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="BtnAdd" Content="Hinzufügen" Width="95" Height="28" Margin="0,0,5,0" Click="BtnAdd_Click"/>
-                        <Button x:Name="BtnRemove" Content="Entfernen" Width="95" Height="28" IsEnabled="False" Click="BtnRemove_Click"/>
+            <!-- Formularliste -->
+            <Border Grid.Column="0" BorderBrush="{StaticResource BorderLight}" BorderThickness="0,0,1,0" Padding="0,0,18,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Berichtsformulare" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                        <Ellipse Width="8" Height="8" Fill="{StaticResource AccentBlue}" Margin="8,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
-                </StackPanel>
+                    
+                    <ListBox x:Name="LstForms" Grid.Row="1"
+                             DisplayMemberPath="DisplayName"
+                             SelectionChanged="LstForms_SelectionChanged"
+                             Background="{StaticResource CardBackground}"
+                             BorderBrush="{StaticResource BorderLight}"
+                             BorderThickness="1"
+                             Margin="0,0,0,12"/>
+                    
+                    <StackPanel Grid.Row="2" Orientation="Horizontal">
+                        <Button x:Name="BtnAdd" Content="Hinzufügen"
+                                Style="{StaticResource FilledAccentButtonStyle}"
+                                Padding="14,6" FontSize="12"
+                                Margin="0,0,8,0"
+                                Click="BtnAdd_Click"/>
+                        <Button x:Name="BtnRemove" Content="Entfernen"
+                                Style="{StaticResource SubtleButtonStyle}"
+                                Padding="14,6" FontSize="12"
+                                IsEnabled="False"
+                                Click="BtnRemove_Click"/>
+                    </StackPanel>
+                </Grid>
             </Border>
             
-            <!-- Rechts: Detail (nur sichtbar wenn Formular ausgewählt) -->
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="15,0,0,0">
+            <!-- Formular-Detail -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="18,0,0,0">
                 <StackPanel x:Name="PanelFormDetail" Visibility="Collapsed">
-                    <TextBlock Text="Formular bearbeiten" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <TextBlock Text="Formular bearbeiten" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
+                        <Rectangle Width="16" Height="3" Fill="{StaticResource AccentCoral}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
                     
-                    <TextBlock Text="Id (eindeutig, z. B. orthopaedie):" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                    <TextBox x:Name="TxtId" Margin="0,0,0,10" Padding="6,4" FontSize="12"/>
+                    <TextBlock Text="Id (eindeutig, z. B. orthopaedie):" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
+                    <TextBox x:Name="TxtId" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12"/>
                     
-                    <TextBlock Text="Anzeigename:" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                    <TextBox x:Name="TxtDisplayName" Margin="0,0,0,10" Padding="6,4" FontSize="12"/>
+                    <TextBlock Text="Anzeigename:" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
+                    <TextBox x:Name="TxtDisplayName" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12"/>
                     
-                    <TextBlock Text="Beschreibung (optional):" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                    <TextBox x:Name="TxtDescription" Margin="0,0,0,15" Padding="6,4" FontSize="12" Height="50" TextWrapping="Wrap" AcceptsReturn="True"/>
-                    
-                    <TextBlock Text="Prompts pro ABeNT-Abschnitt (leer = Standard verwenden)" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    
-                    <TextBlock Text="A (Anamnese):" FontSize="11" Margin="0,6,0,2"/>
-                    <TextBox x:Name="TxtPromptA" Margin="0,0,0,6" Padding="6,4" FontSize="11" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
-                    
-                    <TextBlock Text="Be (Befund):" FontSize="11" Margin="0,6,0,2"/>
-                    <TextBox x:Name="TxtPromptBe" Margin="0,0,0,6" Padding="6,4" FontSize="11" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
-                    
-                    <TextBlock Text="N (Diagnose):" FontSize="11" Margin="0,6,0,2"/>
-                    <TextBox x:Name="TxtPromptN" Margin="0,0,0,6" Padding="6,4" FontSize="11" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
-                    
-                    <TextBlock Text="T (Therapie):" FontSize="11" Margin="0,6,0,2"/>
-                    <TextBox x:Name="TxtPromptT" Margin="0,0,0,15" Padding="6,4" FontSize="11" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+                    <TextBlock Text="Beschreibung (optional):" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
+                    <TextBox x:Name="TxtDescription" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,18" Height="56" TextWrapping="Wrap" AcceptsReturn="True"/>
                     
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <Button x:Name="BtnSaveForm" Content="Formular speichern" Width="140" Height="32" Margin="0,0,10,0" Click="BtnSaveForm_Click"/>
-                        <Button x:Name="BtnRestoreDefault" Content="Standard wiederherstellen" Width="180" Height="32" Visibility="Collapsed" Click="BtnRestoreDefault_Click"/>
+                        <Ellipse Width="6" Height="6" Fill="{StaticResource AccentYellow}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Prompts pro ABeNT-Abschnitt (leer = Standard verwenden)" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                    </StackPanel>
+                    
+                    <TextBlock Text="A (Anamnese):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                    <TextBox x:Name="TxtPromptA" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+                    
+                    <TextBlock Text="Be (Befund):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                    <TextBox x:Name="TxtPromptBe" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+                    
+                    <TextBlock Text="N (Diagnose):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                    <TextBox x:Name="TxtPromptN" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+                    
+                    <TextBlock Text="T (Therapie):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                    <TextBox x:Name="TxtPromptT" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,18" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+                    
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <Button x:Name="BtnSaveForm" Content="Formular speichern"
+                                Style="{StaticResource FilledAccentButtonStyle}"
+                                Padding="16,8" FontSize="13"
+                                Margin="0,0,10,0"
+                                Click="BtnSaveForm_Click"/>
+                        <Button x:Name="BtnRestoreDefault" Content="Standard wiederherstellen"
+                                Style="{StaticResource SubtleButtonStyle}"
+                                Padding="16,8" FontSize="13"
+                                Visibility="Collapsed"
+                                Click="BtnRestoreDefault_Click"/>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
         
-        <Border Grid.Row="2" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,12,0,0">
-            <Button x:Name="BtnClose" Content="Schließen" Width="100" Height="30" HorizontalAlignment="Right" Click="BtnClose_Click"/>
+        <!-- Fußzeile -->
+        <Border Grid.Row="2" BorderBrush="{StaticResource BorderLight}" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,14,0,0">
+            <Button x:Name="BtnClose" Content="Schließen"
+                    Style="{StaticResource AccentButtonStyle}"
+                    Padding="20,8"
+                    HorizontalAlignment="Right"
+                    Click="BtnClose_Click"/>
         </Border>
     </Grid>
 </Window>

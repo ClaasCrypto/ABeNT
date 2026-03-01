@@ -13,13 +13,18 @@ using Newtonsoft.Json.Linq;
 
 namespace ABeNT.Services
 {
-    public class DeepgramService
+    public class DeepgramService : ISttService
     {
         private readonly HttpClient _httpClient;
 
         public DeepgramService()
         {
             _httpClient = new HttpClient();
+        }
+
+        public Task<List<TranscriptSegment>> TranscribeAudioAsync(string filePath, RecorderReportOptions options)
+        {
+            return TranscribeAudioAsync(filePath, options.DeepgramApiKey);
         }
 
         public async Task<List<TranscriptSegment>> TranscribeAudioAsync(string filePath, string apiKey)
@@ -258,7 +263,7 @@ namespace ABeNT.Services
 
         public void Dispose()
         {
-            _httpClient?.Dispose();
+            _httpClient.Dispose();
         }
     }
 }

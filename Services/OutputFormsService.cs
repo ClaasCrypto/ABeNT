@@ -14,7 +14,7 @@ namespace ABeNT.Services
     /// </summary>
     public class OutputFormsService
     {
-        private static readonly string[] StandardFormIds = { "allgemeinmedizin", "orthopaedie" };
+        private static readonly string[] StandardFormIds = { "allgemeinmedizin", "orthopaedie", "neurologie", "echokardiographie" };
 
         private static string GetAppFolder()
         {
@@ -73,7 +73,24 @@ namespace ABeNT.Services
                     string json = File.ReadAllText(path);
                     var list = JsonConvert.DeserializeObject<List<string>>(json);
                     if (list != null && list.Count > 0)
+                    {
+                        bool changed = false;
+                        foreach (string stdId in StandardFormIds)
+                        {
+                            if (!list.Any(f => string.Equals(f, stdId, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                var form = GetDefaultFormById(stdId);
+                                if (form != null)
+                                {
+                                    SaveFormToFile(form);
+                                    list.Add(stdId);
+                                    changed = true;
+                                }
+                            }
+                        }
+                        if (changed) SaveManifest(list);
                         return list;
+                    }
                 }
                 catch { /* fallback */ }
             }
@@ -110,7 +127,7 @@ namespace ABeNT.Services
             }
 
             // Neuer Start: Standardformulare anlegen
-            var defaultIds = new List<string> { "allgemeinmedizin", "orthopaedie" };
+            var defaultIds = new List<string> { "allgemeinmedizin", "orthopaedie", "neurologie", "echokardiographie" };
             foreach (string id in defaultIds)
             {
                 var form = GetDefaultFormById(id);
@@ -158,12 +175,15 @@ namespace ABeNT.Services
                 if (form == null) return null;
                 if (string.IsNullOrWhiteSpace(form.Id))
                     form.Id = id.Trim();
-                // Migration: Alte Anamnese-Vorlage in Standardformularen durch neue ersetzen
-                if (IsStandardForm(id) && IsOldAnamnesePrompt(form.SectionPrompts?.A))
+                // Migration: Alte Prompts in Standardformularen durch neue Fach-Module ersetzen
+                if (IsStandardForm(id) && IsOldPromptVersion(form.SectionPrompts?.A))
                 {
-                    if (form.SectionPrompts == null) form.SectionPrompts = new AbentSectionPrompts();
-                    form.SectionPrompts.A = GetDefaultAnamnesePrompt();
-                    SaveFormToFile(form);
+                    var updated = GetDefaultFormById(id);
+                    if (updated != null)
+                    {
+                        form.SectionPrompts = updated.SectionPrompts;
+                        SaveFormToFile(form);
+                    }
                 }
                 return form;
             }
@@ -173,14 +193,13 @@ namespace ABeNT.Services
             }
         }
 
-        /// <summary>Erkennt die alte Anamnese-Vorlage (z. B. "Nutze PATIENTENSPRACHE" ohne neues Schema).</summary>
-        private static bool IsOldAnamnesePrompt(string? a)
+        /// <summary>Erkennt alte Prompt-Versionen, die durch die neuen Fach-Module ersetzt werden sollen.</summary>
+        private static bool IsOldPromptVersion(string? a)
         {
             if (string.IsNullOrWhiteSpace(a)) return false;
-            if (a.Contains("PATIENTENSPRACHE", StringComparison.OrdinalIgnoreCase) && !a.Contains("Vorerkrankungen / Spezielle Anamnese", StringComparison.Ordinal))
-                return false; // bereits neue Vorlage
-            return a.Contains("Nutze PATIENTENSPRACHE", StringComparison.OrdinalIgnoreCase)
-                || a.Contains("Laienbegriffe", StringComparison.OrdinalIgnoreCase);
+            if (a.Contains("FACH-MODUL ANAMNESE:", StringComparison.Ordinal))
+                return false;
+            return true;
         }
 
         private static SubjectForm? GetDefaultFormById(string id)
@@ -189,6 +208,10 @@ namespace ABeNT.Services
                 return CreateDefaultAllgemeinmedizinForm();
             if (string.Equals(id, "orthopaedie", StringComparison.OrdinalIgnoreCase))
                 return CreateDefaultOrthopaedieForm();
+            if (string.Equals(id, "neurologie", StringComparison.OrdinalIgnoreCase))
+                return CreateDefaultNeurologieForm();
+            if (string.Equals(id, "echokardiographie", StringComparison.OrdinalIgnoreCase))
+                return CreateDefaultEchokardiographieForm();
             return null;
         }
 
@@ -315,7 +338,7 @@ namespace ABeNT.Services
             File.WriteAllText(path, JsonConvert.SerializeObject(config, Formatting.Indented));
         }
 
-        public static string BuildSystemPromptFromConfig(string? formId, string gender, bool includeBefund, bool includeTherapie, bool includeIcd10)
+        public static string BuildSystemPromptFromConfig(string? formId, string gender, bool includeBefund, bool includeTherapie, bool includeIcd10, string recordingMode = "Neupatient")
         {
             string universal = GetUniversalPrompt();
             var form = !string.IsNullOrWhiteSpace(formId) ? GetForm(formId) : null;
@@ -331,18 +354,26 @@ namespace ABeNT.Services
             else
                 sb.AppendLine("Nutze 'Patient', neutrale Formulierungen ohne Pronomen.");
 
-            bool includeN = includeBefund || includeTherapie || includeIcd10;
+            sb.AppendLine(GetModePrompt(recordingMode));
+
+            bool includeA = !string.IsNullOrWhiteSpace(form?.SectionPrompts?.A);
+            if (!includeA && form == null) includeA = true;
+            bool includeN = true;
             sb.AppendLine("\nOutput-Struktur:");
-            sb.AppendLine("Erstelle **A** (Anamnese) immer.");
+            if (includeA) sb.AppendLine("Erstelle **A** (Anamnese).");
             if (includeBefund) sb.AppendLine("Erstelle **Be** (Befund).");
-            if (includeN) sb.AppendLine("Erstelle **N** (Diagnose/Name)" + (includeIcd10 ? " mit ICD-10-Codes in Klammern." : "."));
+            if (includeN) sb.AppendLine("Erstelle **N** (Diagnosen).");
+            if (includeIcd10) sb.AppendLine("Erstelle **ICD-10** (ICD-10-Codierung).");
             if (includeTherapie) sb.AppendLine("Erstelle **T** (Therapie).");
 
             sb.AppendLine("\nSTRUKTURVORGABEN:");
 
-            string promptA = form?.SectionPrompts?.A?.Trim() ?? "";
-            if (string.IsNullOrEmpty(promptA)) promptA = GetDefaultSectionA();
-            sb.AppendLine("\n**A**\n[ANWEISUNG:\n" + promptA + "\n]");
+            if (includeA)
+            {
+                string promptA = form?.SectionPrompts?.A?.Trim() ?? "";
+                if (string.IsNullOrEmpty(promptA)) promptA = GetDefaultSectionA();
+                sb.AppendLine("\n**A**\n[ANWEISUNG:\n" + promptA + "\n]");
+            }
 
             if (includeBefund)
             {
@@ -354,82 +385,306 @@ namespace ABeNT.Services
             {
                 string promptN = form?.SectionPrompts?.N?.Trim() ?? "";
                 if (string.IsNullOrEmpty(promptN)) promptN = GetDefaultSectionN();
-                if (includeIcd10)
-                    promptN += "\nBei jeder Diagnose den passenden ICD-10-Code in Klammern angeben, z.B. Lumbago (M54.5).";
                 sb.AppendLine("\n**N**\n[ANWEISUNG:\n" + promptN + "\n]");
+            }
+            if (includeIcd10)
+            {
+                string promptIcd = form?.SectionPrompts?.Icd10?.Trim() ?? "";
+                if (string.IsNullOrEmpty(promptIcd)) promptIcd = GetDefaultIcd10Prompt(form?.DisplayName ?? "Allgemeinmedizin");
+                sb.AppendLine("\n**ICD-10**\n[ANWEISUNG:\n" + promptIcd + "\n]");
             }
             if (includeTherapie)
             {
                 string promptT = form?.SectionPrompts?.T?.Trim() ?? "";
-                if (string.IsNullOrEmpty(promptT)) promptT = GetDefaultSectionT();
-                sb.AppendLine("\n**T**\n[ANWEISUNG:\n" + promptT + "\n]");
+                if (!string.IsNullOrEmpty(promptT))
+                    sb.AppendLine("\n**T**\n[ANWEISUNG:\n" + promptT + "\n]");
             }
-
-            sb.AppendLine("\nSchreibe keinen Text vor dem ersten Marker.");
             return sb.ToString();
         }
 
-        private static string GetDefaultSectionA() => GetDefaultAnamnesePrompt();
+        private static string GetDefaultSectionA() => GetDefaultAnamnesePromptAM();
 
-        private static string GetDefaultAnamnesePrompt()
+        private static string GetDefaultAnamnesePromptAM()
         {
-            return @"Du bist ein hochqualifizierter, erfahrener Facharzt und verfasst die Anamnese für einen offiziellen, medizinischen Arztbrief.
+            return @"FACH-MODUL ANAMNESE: ALLGEMEINMEDIZIN
 
-Deine Aufgabe ist es, aus dem folgenden Transkript eines Arzt-Patienten-Gesprächs ausschließlich die anamnestischen Informationen herauszufiltern und diese in einem professionellen, diktierten Arztbrief-Stil zu formatieren.
+Erstelle aus dem Transkript die Anamnese im Nominalstil oder in kurzen, objektiven Sätzen. Vergiss kein medizinisches Detail, lasse aber Smalltalk und irrelevante Gesprächsanteile rigoros weg.
 
-Du vergisst kein einziges medizinisches Detail (wie Schmerzcharakter, Ausstrahlung, Vorbehandlungen, Dauer), lässt aber jeglichen Smalltalk, Empathie-Bekundungen und irrelevante Nebensätze rigoros weg. Du erfindest keine Informationen hinzu.
+Formatierung: Schreibe jede Unterkategorie als eigene Überschriftszeile, darunter den Inhalt als Fließtext oder kommagetrennte Aufzählung. Trenne Unterkategorien durch eine Leerzeile.
 
-Nutze strikte ärztliche Fachsprache. Beginne direkt mit dem Inhalt, ohne zusätzliche Überschrift vor dem Fließtext.
-
-Erstelle die Ausgabe EXAKT nach folgendem Formatierungs-Schema. Halte die folgenden Überschriften exakt so ein und setze unter jede Überschrift den Text:
-
-[Beginne mit dem prägnanten, verdichteten Fließtext zum jetzigen Leiden im Nominalstil oder in kurzen, objektiven Sätzen.
-Beginne typischerweise mit dem Vorstellungsgrund (z.B. ""Vorstellung des Patienten aufgrund von..."").
-Fasse die aktuelle Symptomatik, Schmerzlokalisation, Ausstrahlung, Schmerzcharakter, Auslöser (z.B. Trauma, Belastung) und die bisherige Dauer der Symptome zusammen.
-Erwähne hier auch spezifische Vorbehandlungen, die exakt dieses Akutereignis betreffen (z.B. ""Z.n. frustraner Infiltrationstherapie alio loco"").
-Danach folgen die nachstehenden Überschriften mit Inhalt.]
+Jetziges Leiden:
+Beginne mit dem Vorstellungsgrund. Fasse die aktuelle Symptomatik zusammen: Lokalisation, Charakter, Dauer, Auslöser, zeitlicher Verlauf, Begleitsymptome. Erwähne bisherige Selbstmedikation oder Akutbehandlungen, die dieses Ereignis betreffen.
 
 Vorerkrankungen / Spezielle Anamnese:
-[Liste hier alle weiteren genannten Diagnosen, Operationen oder chronischen Begleiterkrankungen auf, getrennt durch Komma.
-WICHTIG: Wurde nichts erwähnt, schreibe exakt: ""Keine relevanten Vorerkrankungen eruierbar.""]
+Alle genannten chronischen Erkrankungen, relevante Vordiagnosen, Operationen, Krankenhausaufenthalte, kommagetrennt.
+Fachspezifische Ergänzung: Impfstatus, Vorsorgeuntersuchungen, familiäre Belastung (kardiovaskulär, Diabetes, Tumorerkrankungen) sofern erwähnt.
+Fallback: ""Keine relevanten Vorerkrankungen eruierbar.""
 
 Dauermedikation:
-[Liste die Medikamente auf. Jedes Medikament in eine neue Zeile. Format: Name + Dosierung (z.B. 'Ibuprofen 600 mg 1-0-1').
-WICHTIG: Wenn der Patient keine Medikamente nimmt oder nichts erwähnt wurde, schreibe exakt: ""Aktuell keine regelmäßige Medikamenteneinnahme bekannt.""]
+Jedes Medikament in eine neue Zeile. Format: Name Dosierung Einnahmeschema (z.B. Metformin 1000 mg 1-0-1).
+Fallback: ""Aktuell keine regelmäßige Medikamenteneinnahme bekannt.""
 
 Allergien / Unverträglichkeiten:
-[Nenne bekannte Allergien (z.B. Penicillin).
-WICHTIG: Wenn nichts erwähnt, schreibe exakt: ""Keine Allergien oder Unverträglichkeiten bekannt.""]
+Auslöser und Reaktionstyp sofern genannt (z.B. Penicillin - Exanthem).
+Fallback: ""Keine Allergien oder Unverträglichkeiten bekannt.""
 
 Vegetative Anamnese:
-[Fasse hier B-Symptomatik, Appetit, Gewichtsverlust, Miktion, Defäkation oder Schlafstörungen zusammen, falls erwähnt.
-WICHTIG: Wurde im Gespräch nichts davon thematisiert, lasse diesen Punkt unerwähnt und schreibe auch die Überschrift ""Vegetative Anamnese:"" nicht hin.]
+B-Symptomatik (Fieber, Nachtschweiß, ungewollter Gewichtsverlust), Appetit, Schlaf, Miktion, Stuhlgang.
+Fallback: ""Vegetative Anamnese im Gespräch nicht erhoben.""
 
 Noxen / Sozialanamnese:
-[Nenne Nikotinkonsum, Alkohol, Beruf, Sport.
-WICHTIG: Wenn nichts erwähnt, schreibe exakt: ""Noxen nicht erfragt, Sozialanamnese unauffällig.""]";
+Nikotinkonsum (pack years sofern quantifizierbar), Alkoholkonsum, Drogenkonsum, Beruf, häusliche Situation, Pflegebedarf.
+Fallback: ""Noxenanamnese nicht erhoben. Sozialanamnese unauffällig.""";
         }
-        private static string GetDefaultSectionBe() =>
-            "Nutze strikte ÄRZTLICHE FACHSPRACHE.\nStruktur: Für jedes Organ einen Block: 'Befund [Organ] [Seite (re./li./bds.)]:' Darunter die Befunde. Formatierung: Trenne Angaben mit KOMMA (,). Ende mit PUNKT. LEERZEILE zwischen Organ-Blöcken. Vitalparameter nur wenn genannt. Wenn gar keine Untersuchung: 'Keine Untersuchungsergebnisse dokumentiert'.";
-        private static string GetDefaultSectionN() =>
-            "Liste der Diagnosen (Fachsprache). Seitenangabe PFLICHT (re./li./bds.). Kennzeichne Unsicherheiten (V.a., D.D.). Jede Diagnose in eine neue Zeile.";
-        private static string GetDefaultSectionT() =>
-            "1. Zuerst: Geplante Behandlungen, Verordnungen (Heilmittel/Hilfsmittel), AU und Procedere (mit KOMMA getrennt).\n2. Danach LEERZEILE und exakt: 'Medikation:'\n3. Darunter: Jedes Medikament in eine NEUE ZEILE. Format: Wirkstoff/Name + Stärke + Schema (z.B. 1-0-1, tgl.).";
+
+        private static string GetDefaultAnamnesePromptOR()
+        {
+            return @"FACH-MODUL ANAMNESE: ORTHOPÄDIE
+
+Erstelle aus dem Transkript die Anamnese im Nominalstil oder in kurzen, objektiven Sätzen. Vergiss kein medizinisches Detail (Schmerzcharakter, Ausstrahlung, Vorbehandlungen, Dauer), lasse aber Smalltalk und irrelevante Gesprächsanteile rigoros weg.
+
+Formatierung: Schreibe jede Unterkategorie als eigene Überschriftszeile, darunter den Inhalt als Fließtext oder kommagetrennte Aufzählung. Trenne Unterkategorien durch eine Leerzeile.
+
+Jetziges Leiden:
+Beginne mit dem Vorstellungsgrund (z.B. ""Vorstellung aufgrund persistierender Gonalgie re.""). Fasse zusammen: Schmerzlokalisation, Seitenangabe, Ausstrahlung, Schmerzcharakter (stechend, ziehend, dumpf, brennend), Auslöser (Trauma, Belastung, spontan), Dauer, tageszeitliche Dynamik, belastungsabhängige Komponente, Einschränkungen im Alltag. Erwähne akutbezogene Vorbehandlungen (z.B. Z.n. frustraner Infiltrationstherapie alio loco, bisherige Analgesie, Physiotherapie).
+
+Vorerkrankungen / Spezielle Anamnese:
+Orthopädische Voroperationen, Frakturen, bekannte degenerative Veränderungen, rheumatologische Grunderkrankungen, sonstige relevante Begleitdiagnosen, kommagetrennt.
+Fallback: ""Keine relevanten Vorerkrankungen eruierbar.""
+
+Dauermedikation:
+Jedes Medikament in eine neue Zeile. Format: Name Dosierung Einnahmeschema (z.B. Ibuprofen 600 mg 1-0-1).
+Fallback: ""Aktuell keine regelmäßige Medikamenteneinnahme bekannt.""
+
+Allergien / Unverträglichkeiten:
+Auslöser und Reaktionstyp sofern genannt.
+Fallback: ""Keine Allergien oder Unverträglichkeiten bekannt.""
+
+Vegetative Anamnese:
+Schlafstörungen durch Schmerzen, Gewichtsveränderung, B-Symptomatik sofern erwähnt.
+Fallback: ""Vegetative Anamnese im Gespräch nicht erhoben.""
+
+Noxen / Sozialanamnese:
+Nikotinkonsum, Alkohol, Beruf (insbesondere körperliche Belastung, Überkopfarbeit, sitzende Tätigkeit), sportliche Aktivität, Hilfsmittelbedarf.
+Fallback: ""Noxenanamnese nicht erhoben. Sozialanamnese unauffällig.""";
+        }
+
+        private static string GetDefaultAnamnesePromptNE()
+        {
+            return @"FACH-MODUL ANAMNESE: NEUROLOGIE
+
+Erstelle aus dem Transkript die Anamnese im Nominalstil oder in kurzen, objektiven Sätzen. Vergiss kein medizinisches Detail (Symptomcharakter, zeitlicher Verlauf, Auslöser, Begleitsymptome), lasse aber Smalltalk und irrelevante Gesprächsanteile rigoros weg.
+
+Formatierung: Schreibe jede Unterkategorie als eigene Überschriftszeile, darunter den Inhalt als Fließtext oder kommagetrennte Aufzählung. Trenne Unterkategorien durch eine Leerzeile.
+
+Jetziges Leiden:
+Beginne mit dem Vorstellungsgrund. Fasse zusammen: Art der Symptomatik (Schmerz, Sensibilitätsstörung, Paresen, Schwindel, Kopfschmerzen, Krampfanfälle, kognitive Defizite), Lokalisation, Seitenangabe, Ausstrahlung/Dermatomzuordnung, zeitlicher Verlauf (akut/subakut/chronisch, progredient/rezidivierend/konstant), Auslöser, Begleitsymptome (Übelkeit, Erbrechen, Sehstörungen, Sprachstörungen, Gangunsicherheit). Erwähne bisherige neurologische Diagnostik (MRT, CT, EEG, NLG/EMG, Liquorpunktion) und Vorbehandlungen.
+Bei Kopfschmerzen: Frequenz, Dauer der Einzelattacke, Aura, Trigger, begleitende Photo-/Phonophobie.
+Bei Schwindel: Drehschwindel vs. Schwankschwindel, Dauer, Lageabhängigkeit, Nystagmus.
+Bei Anfallsleiden: Anfallstyp, Frequenz, letzte Episode, Prodromi, postiktale Phase.
+
+Vorerkrankungen / Spezielle Anamnese:
+Neurologische Vorerkrankungen (Epilepsie, MS, Schlaganfall, Polyneuropathie), psychiatrische Komorbidität, Schädel-Hirn-Traumata, neurochirurgische Eingriffe, vaskuläre Risikofaktoren (arterielle Hypertonie, Diabetes, Vorhofflimmern, Hyperlipidämie), Familienanamnese für neurologische Erkrankungen, kommagetrennt.
+Fallback: ""Keine relevanten Vorerkrankungen eruierbar.""
+
+Dauermedikation:
+Jedes Medikament in eine neue Zeile. Format: Name Dosierung Einnahmeschema (z.B. Levetiracetam 500 mg 1-0-1).
+Besondere Beachtung von: Antikonvulsiva, Antikoagulantien, Antidepressiva, Neuroleptika, Analgetika inkl. Triptane.
+Fallback: ""Aktuell keine regelmäßige Medikamenteneinnahme bekannt.""
+
+Allergien / Unverträglichkeiten:
+Auslöser und Reaktionstyp sofern genannt.
+Fallback: ""Keine Allergien oder Unverträglichkeiten bekannt.""
+
+Vegetative Anamnese:
+Schlafstörungen (Ein-/Durchschlaf, Schlafapnoe, REM-Schlaf-Verhaltensstörung), Blasen-/Mastdarmfunktion, Schweißsekretionsstörungen, orthostatische Beschwerden, Gewichtsveränderung.
+Fallback: ""Vegetative Anamnese im Gespräch nicht erhoben.""
+
+Noxen / Sozialanamnese:
+Nikotinkonsum, Alkoholkonsum (insbesondere bzgl. Polyneuropathie, Anfallsrisiko), Beruf (Nacht-/Schichtarbeit, Exposition gegenüber Neurotoxinen), Fahrtauglichkeit, Pflegebedarf, häusliche Versorgungssituation.
+Fallback: ""Noxenanamnese nicht erhoben. Sozialanamnese unauffällig.""";
+        }
+
+        private static string GetDefaultBefundPromptAM()
+        {
+            return @"FACH-MODUL BEFUND: ALLGEMEINMEDIZIN
+
+Erstelle aus dem Transkript den klinischen Untersuchungsbefund. Dokumentiere ausschließlich im Gespräch genannte oder durchgeführte Untersuchungen. Erfinde keine Befunde hinzu.
+
+Formatierung: Für jedes untersuchte Organsystem einen Block. Überschrift: ""Befund [Organsystem] [Seitenangabe wenn zutreffend]:"". Darunter die Einzelbefunde (Inspektion, Palpation, Perkussion, Auskultation, orientierende Funktion), durch Komma getrennt, Block mit Punkt abschließen. Leerzeile zwischen verschiedenen Organsystem-Blöcken.
+
+Vitalparameter:
+Wenn genannt, als ersten Block anführen: RR [Wert] mmHg, Puls [Wert]/min, Temperatur [Wert] Grad C, SpO2 [Wert] %, Gewicht [Wert] kg, Größe [Wert] cm.
+
+Relevante Organsysteme (nur dokumentieren wenn im Gespräch untersucht):
+Allgemeinzustand und Ernährungszustand.
+Haut und Schleimhäute: Kolorit, Turgor, Effloreszenzen, Ikterus, Zyanose.
+Kopf/Hals: Lymphknoten, Schilddrüse, Meningismus.
+Herz: Auskultation (Herzrhythmus, Herztöne, Geräusche).
+Lunge: Auskultation (Atemgeräusch, Rasselgeräusche, Giemen), Perkussion.
+Abdomen: Inspektion, Auskultation (Darmgeräusche), Palpation (Druckschmerz, Resistenzen, Organomegalie), Perkussion.
+Extremitäten: Ödeme, Pulse, Varikosis, Beweglichkeit.
+Orientierende neurologische Untersuchung: Pupillen, Kraft, Sensibilität, Koordination sofern durchgeführt.
+
+Fallback (wenn keine Untersuchung stattfand):
+""Keine Untersuchungsergebnisse dokumentiert.""";
+        }
+
+        private static string GetDefaultBefundPromptOR()
+        {
+            return @"FACH-MODUL BEFUND: ORTHOPÄDIE
+
+Erstelle aus dem Transkript den klinischen Untersuchungsbefund. Dokumentiere ausschließlich im Gespräch genannte oder durchgeführte Untersuchungen. Erfinde keine Befunde hinzu. Übernimm genannte Testbezeichnungen wörtlich.
+
+Formatierung: Für jeden untersuchten anatomischen Bereich einen Block. Überschrift: ""Befund [Region] [re./li./bds.]:"". Darunter die Einzelbefunde, durch Komma getrennt, Block mit Punkt abschließen. Leerzeile zwischen verschiedenen Regions-Blöcken.
+
+Vitalparameter:
+Wenn genannt: RR [Wert] mmHg, Puls [Wert]/min.
+
+Relevante Untersuchungsinhalte pro Region (nur dokumentieren wenn durchgeführt):
+Inspektion: Haltung, Gangbild (Hinken, Schonhaltung), Achsfehlstellung, Schwellung, Rötung, Muskelatrophie, Narben.
+Palpation: Druckschmerz (exakte Lokalisation), Krepitation, Erguss, Überwärmung, Muskelhartspann, Triggerpunkte, myofasziale Tonuserhöhung.
+Bewegungsausmaß (ROM): Neutral-Null-Methode sofern dokumentiert (z.B. Flex/Ext 130/0/0 Grad). Endgefühl, Bewegungsschmerz.
+Kraft: Kraftgrade nach Janda (0-5) sofern geprüft, Seitenvergleich.
+Stabilitätstests: Testbezeichnung und Ergebnis (positiv/negativ), z.B. Lachman-Test negativ, vordere Schublade negativ, Meniskustests (McMurray, Steinmann, Apley), Impingement-Tests (Neer, Hawkins, Jobe), Bandstabilität (Aufklappbarkeit, Pivot-Shift).
+Neurologie orientierend: Sensibilität, Motorik, Reflexe der betroffenen Extremität sofern geprüft.
+Wirbelsäule: Schober-Zeichen, Ott-Zeichen, Finger-Boden-Abstand, Lasegue, Bragard, Federungstest, ISG-Provokation sofern durchgeführt.
+
+Fallback (wenn keine Untersuchung stattfand):
+""Keine Untersuchungsergebnisse dokumentiert.""";
+        }
+
+        private static string GetDefaultBefundPromptNE()
+        {
+            return @"FACH-MODUL BEFUND: NEUROLOGIE
+
+Erstelle aus dem Transkript den neurologischen Untersuchungsbefund. Dokumentiere ausschließlich im Gespräch genannte oder durchgeführte Untersuchungen. Erfinde keine Befunde hinzu.
+
+Formatierung: Für jedes geprüfte neurologische System einen Block. Überschrift: ""Befund [System]:"". Darunter die Einzelbefunde, durch Komma getrennt, Block mit Punkt abschließen. Leerzeile zwischen verschiedenen System-Blöcken. Seitenvergleich dokumentieren wo relevant (re./li./bds.).
+
+Vitalparameter:
+Wenn genannt: RR [Wert] mmHg, Puls [Wert]/min, Temperatur [Wert] Grad C.
+
+Relevante neurologische Untersuchungssysteme (nur dokumentieren wenn geprüft):
+
+Bewusstsein und Orientierung:
+Vigilanz (wach, somnolent, soporös, komatös), Orientierung (zeitlich, örtlich, situativ, zur Person), GCS sofern erhoben.
+
+Hirnnerven:
+I: Riechprüfung.
+II: Visus orientierend, Gesichtsfeld (Fingerperimetrie), Pupillen (isokor/anisokor, Weite, direkte/konsensuelle Lichtreaktion, Konvergenz).
+III/IV/VI: Augenmotilität (Blickfolge, Doppelbilder, Nystagmus: Richtung, erschöpflich/nicht erschöpflich).
+V: Sensibilität Gesicht (alle drei Äste), Masseterreflex, Kornealreflex.
+VII: Mimische Muskulatur (Stirnrunzeln, Lidschluss, Nasolabialfalte, Zähnezeigen), Geschmack vordere 2/3 der Zunge sofern geprüft.
+VIII: Hörprüfung orientierend (Fingerreiben), Weber, Rinne sofern durchgeführt.
+IX/X: Gaumensegelinnervation, Würgereflex, Schluckakt.
+XI: Kopfwendung, Schulterhebung (M. trapezius, M. sternocleidomastoideus).
+XII: Zungenmotilität (Deviation, Atrophie, Faszikulationen).
+
+Motorik:
+Kraftgrade nach MRC (0-5) pro Kennmuskel oder Muskelgruppe, Seitenvergleich. Muskeltonus (normoton, spastisch, rigide, schlaff). Trophik (Atrophie, Faszikulationen).
+
+Sensibilität:
+Berührung (Pallästhesie, Graphästhesie), Schmerz (Spitz-Stumpf-Diskrimination), Temperatur, Vibration (Stimmgabel mit Wertangabe /8), Lagesinn. Angabe der betroffenen Dermatome oder Verteilung (strumpf-/handschuhförmig, halbseitig, dissoziiert).
+
+Reflexe:
+Muskeleigenreflexe: BSR, TSR, RPR, PSR, ASR (Seitenvergleich, Abschwächung/Steigerung/Kloni). Pathologische Reflexe: Babinski, Gordon, Oppenheim, Troemner.
+
+Koordination:
+Finger-Nase-Versuch, Knie-Hacke-Versuch, Dysdiadochokinese, Rebound-Phänomen, Romberg-Stehversuch, Unterberger-Tretversuch.
+
+Gang:
+Gangbild (normal, breitbasig, kleinschrittig, ataktisch, spastisch, hinkend), Seiltänzergang, Einbeinstand, Fersengang, Zehenspitzengang.
+
+Sprache und Kognition:
+Dysarthrie, Aphasie (Typ sofern differenzierbar), Neglect, Apraxie, orientierende kognitive Prüfung (MMSE, MoCA, Uhrentest) mit Ergebnis sofern durchgeführt.
+
+Meningismus:
+Nackensteife, Brudzinski, Kernig, Lasegue sofern geprüft.
+
+Fallback (wenn keine Untersuchung stattfand):
+""Keine Untersuchungsergebnisse dokumentiert.""";
+        }
+
+        private static string GetDefaultDiagnosenPrompt()
+        {
+            return @"Leite aus der dokumentierten Anamnese und dem Befund die wahrscheinlichsten Diagnosen ab.
+Gib die Diagnosen als Liste aus, eine Diagnose pro Zeile. Verwende Fachterminologie.
+Sortierung: Hauptdiagnose (aktueller Vorstellungsgrund) zuerst, dann Nebendiagnosen nach klinischer Relevanz absteigend.
+Kennzeichne den Sicherheitsgrad:
+Gesicherte Diagnose: nur Diagnosetext (z.B. ""Gonarthrose re."")
+Verdachtsdiagnose: mit Präfix ""V.a."" (z.B. ""V.a. Meniskusläsion re."")
+Ausschlussdiagnose: mit Präfix ""Ausschluss"" (z.B. ""Ausschluss Bandruptur"")
+Zustand nach: mit Präfix ""Z.n."" (z.B. ""Z.n. Knie-TEP li. 2019"")
+Wenn aus dem Gespräch keine Diagnose ableitbar: ""Keine Diagnose aus den vorliegenden Informationen ableitbar.""";
+        }
+
+        private static string GetDefaultIcd10Prompt(string fachrichtung)
+        {
+            string fachPrio = fachrichtung switch
+            {
+                "Orthopädie" => "Bei Fachrichtung Orthopädie: priorisiere M-Codes (Muskel-Skelett) und S/T-Codes (Verletzungen), ergänze Begleitdiagnosen aus anderen Kapiteln.",
+                "Neurologie" => "Bei Fachrichtung Neurologie: priorisiere G-Codes (Nervensystem), ergänze I-Codes (zerebrovaskulär), R-Codes (Symptome) und Begleitdiagnosen.",
+                "Kardiologie" => "Bei Fachrichtung Kardiologie: priorisiere I-Codes (Herz-Kreislauf), insbesondere I05-I09 (rheumatische Klappenfehler), I34-I37 (nichtrheumatische Klappenfehler), I42 (Kardiomyopathien), I50 (Herzinsuffizienz), I31 (Perikarderkrankungen).",
+                _ => "Bei Fachrichtung Allgemeinmedizin: gesamtes ICD-10-Spektrum, häufig Kapitel I-XIV."
+            };
+
+            return $@"Gib zu jeder Diagnose den passenden ICD-10-GM-Code an. Eine Zeile pro Diagnose. Format: [ICD-10-Code] [Diagnosentext]
+Verwende die höchste sinnvolle Spezifität (4- oder 5-stellig). Ergänze die Seitenkennzeichnung bei paarigen Organen: R (rechts), L (links), B (beidseits).
+Verwende die Diagnosesicherheit gemäß ICD-10-Kodierrichtlinien: G (gesichert), V (Verdacht), A (Ausschluss), Z (Zustand nach).
+{fachPrio}";
+        }
+
+        private static string GetDefaultSectionBe() => GetDefaultBefundPromptAM();
+        private static string GetDefaultSectionN() => GetDefaultDiagnosenPrompt();
+        private static string GetDefaultSectionT() => string.Empty;
+
+        /// <summary>Mode-specific prompt module (Neupatient / Kontrolltermin).</summary>
+        public static string GetModePrompt(string recordingMode)
+        {
+            if (string.Equals(recordingMode, "Kontrolltermin", StringComparison.OrdinalIgnoreCase))
+            {
+                return @"
+MODUS: KONTROLLTERMIN / WIEDERVORSTELLUNG
+
+Für die Anamnese gilt: Beschränke dich auf das aktuelle Vorstellungsanliegen. Gib ausschließlich die Unterkategorie ""Jetziges Leiden"" aus. Beschreibe den aktuellen Verlauf seit dem letzten Termin, Veränderungen der Symptomatik, Therapieansprechen und aktuelle Beschwerden. Vorerkrankungen, Dauermedikation, Allergien, vegetative Anamnese und Sozialanamnese werden nicht erneut dokumentiert, es sei denn, es werden im Gespräch relevante Änderungen erwähnt. In diesem Fall ergänze nur die Änderung unter der betreffenden Unterkategorie mit dem Vermerk ""Neu:"" oder ""Änderung:"".";
+            }
+
+            return @"
+MODUS: NEUPATIENT / ERSTVORSTELLUNG
+
+Für die Anamnese gilt: Erfasse alle verfügbaren Informationen vollständig. Die Anamnese enthält folgende Pflicht-Unterkategorien in exakt dieser Reihenfolge:
+
+Jetziges Leiden
+Vorerkrankungen / Spezielle Anamnese
+Dauermedikation
+Allergien / Unverträglichkeiten
+Vegetative Anamnese
+Noxen / Sozialanamnese
+
+Jede Unterkategorie wird ausgegeben. Wurde eine Kategorie im Gespräch nicht thematisiert, verwende den im Fach-Modul definierten Fallback-Satz.";
+        }
 
         private static string GetDefaultUniversalPrompt()
         {
-            return @"Du bist ein präziser medizinischer Dokumentations-Assistent.
+            return @"Du bist ein präziser medizinischer Dokumentations-Assistent für Einträge in die Patientenakte.
 
 GLOBALE REGELN:
-1. Nutze für den INHALT reinen Text (kein Markdown wie **Fett**).
-2. Nutze KEINE automatischen Nummerierungen (1., 2.).
-3. Trenne Haupt-Abschnitte NUR mit den Markern **A**, **Be**, **N**, **T**, **ICD-10**.
-4. ABKÜRZUNGEN: Kürze Seitenangaben IMMER ab: 're.' (rechts), 'li.' (links), 'bds.' (beidseits). Nutze gängige medizinische Kürzel (z.B. 'o.B.', 'Z.n.', 'V.a.').
 
-Sprecher-Erkennung:
-Analysiere das Gespräch. Der Sprecher, der Fragen stellt und Anweisungen gibt, ist der ARZT. Der andere ist der PATIENT. Tausche die Rollen logisch, falls die Labels vertauscht scheinen.
+Sprache: Nutze durchgehend ärztliche Fachsprache. Verwende gängige medizinische Abkürzungen: re. (rechts), li. (links), bds. (beidseits), o.B. (ohne Befund), Z.n. (Zustand nach), V.a. (Verdacht auf), ED (Erstdiagnose), DD (Differentialdiagnose), ggf. (gegebenenfalls), bzgl. (bezüglich), ca. (circa), Pat. (Patient/in).
 
-Schreibe keinen Text vor dem ersten Marker.";
+Format: Nutze für den Inhalt reinen Text. Kein Markdown, keine Sternchen, kein Fettdruck. Keine automatischen Nummerierungen (1., 2., 3.).
+
+Marker-System: Trenne die Hauptabschnitte ausschließlich mit folgenden Markern. Schreibe keinen Text vor dem ersten Marker.
+**A** = Anamnese
+**Be** = Befund
+**N** = Diagnosen
+**ICD-10** = ICD-10-Codierung
+Gib nur die Marker aus, die vom Nutzer angefordert wurden.
+
+Negativbefunde: Wenn eine Kategorie im Gespräch nicht thematisiert wurde, nutze den jeweils vorgesehenen Fallback-Satz. Erfinde niemals Informationen hinzu.
+
+Sprecher-Erkennung: Analysiere das Gesprächstranskript. Der Sprecher, der Fragen stellt, Anweisungen gibt oder Untersuchungen durchführt, ist der Arzt. Der andere Sprecher ist der Patient. Tausche die Rollen logisch, falls die Labels vertauscht erscheinen.";
         }
 
         private static SubjectForm CreateDefaultAllgemeinmedizinForm()
@@ -441,39 +696,11 @@ Schreibe keinen Text vor dem ersten Marker.";
                 Description = "Standard-ABeNT für allgemeinmedizinische/internistische Befunde.",
                 SectionPrompts = new AbentSectionPrompts
                 {
-                    A = GetDefaultAnamnesePrompt(),
-                    Be = @"Nutze strikte ÄRZTLICHE FACHSPRACHE.
-
-Struktur:
-Für jedes Organ/System einen Block:
-'Befund [Organ/System] [Seite (re./li./bds.) wenn zutreffend]:'
-Darunter die Befunde (Inspektion, Palpation, Perkussion, Auskultation, orientierende Funktion).
-Formatierung: Trenne einzelne Angaben innerhalb eines Bereichs mit KOMMA (,). Ende den Block mit einem PUNKT (.).
-Mache eine LEERZEILE zwischen verschiedenen Organ-Blöcken.
-
-Vitalparameter: Wenn genannt anführen (RR, Puls, Temperatur, SpO2, Gewicht). Format z.B. 'RR 120/80 mmHg', 'Puls 72/min'.
-Allgemeinmedizin/Internistik: Allgemeinzustand, Haut/Schleimhaut, Herz (Auskultation), Lunge, Abdomen, Lymphknoten, Ödeme, orientierend Neurologie – nur dokumentieren, wenn im Gespräch erwähnt.
-WICHTIG: Wenn gar keine Untersuchung: 'Keine Untersuchungsergebnisse dokumentiert'.",
-                    N = @"Liste der Diagnosen (Fachsprache).
-- Seitenangabe PFLICHT wo zutreffend (re./li./bds.).
-- Kennzeichne Unsicherheiten (V.a., D.D.).
-- Jede Diagnose in eine neue Zeile.
-Allgemeinmedizin/Internistik: ICD-10-Orientierung für innere, kardiovaskuläre, respiratorische, gastroenterologische, endokrine und allgemeine Diagnosen wenn sinnvoll.",
-                    T = @"Halte dich strikt an diese Reihenfolge:
-
-1. Zuerst: Geplante Behandlungen, Verordnungen (Heilmittel, Labor, Bildgebung, Überweisung), AU und Procedere.
-   Formatierung: Liste diese Punkte hintereinander auf, getrennt durch KOMMA (,).
-
-2. Danach: Füge eine LEERZEILE ein und schreibe exakt: 'Medikation:'
-
-3. Darunter:
-   - Jedes Medikament MUSS in eine NEUE ZEILE!
-   - Format: Wirkstoff/Name + Stärke + Schema (z.B. '1-0-1', 'tgl.', 'wchtl.', bei Tropfen 'ggt').
-   - Beispiel:
-     Medikation:
-     Ibuprofen 400mg 1-0-1
-     Metformin 1000mg 1-0-1",
-                    Icd10 = string.Empty
+                    A = GetDefaultAnamnesePromptAM(),
+                    Be = GetDefaultBefundPromptAM(),
+                    N = GetDefaultDiagnosenPrompt(),
+                    T = string.Empty,
+                    Icd10 = GetDefaultIcd10Prompt("Allgemeinmedizin")
                 }
             };
         }
@@ -487,41 +714,106 @@ Allgemeinmedizin/Internistik: ICD-10-Orientierung für innere, kardiovaskuläre,
                 Description = "Standard-ABeNT für orthopädische Befunde.",
                 SectionPrompts = new AbentSectionPrompts
                 {
-                    A = GetDefaultAnamnesePrompt(),
-                    Be = @"Nutze strikte ÄRZTLICHE FACHSPRACHE.
-
-Struktur:
-Für jedes Organ/Bereich einen Block:
-'Befund [Organ/Bereich] [Seite (re./li./bds.)]:'
-Darunter die Befunde (Inspektion, Palpation, Funktion, Tests, Bewegungsausmaß).
-Formatierung: Trenne einzelne Angaben innerhalb eines Bereichs mit KOMMA (,). Ende den Block mit einem PUNKT (.).
-Mache eine LEERZEILE zwischen verschiedenen Organ-Blöcken.
-
-Vitalparameter: Nur wenn Werte genannt (Format: 'RR 120/80 mmHg').
-Orthopädie: Ganganalyse, Haltung, Druckschmerz, Bewegungseinschränkung (ROM), Kraft, Stabilitätstests wenn erwähnt.
-WICHTIG: Wenn gar keine Untersuchung: 'Keine Untersuchungsergebnisse dokumentiert'.",
-                    N = @"Liste der Diagnosen (Fachsprache).
-- Seitenangabe PFLICHT (re./li./bds.).
-- Kennzeichne Unsicherheiten (V.a., D.D.).
-- Jede Diagnose in eine neue Zeile.
-Orthopädie: ICD-10-Orientierung für muskuloskelettale Diagnosen wenn sinnvoll.",
-                    T = @"Halte dich strikt an diese Reihenfolge:
-
-1. Zuerst: Geplante Behandlungen, Verordnungen (Heilmittel/Hilfsmittel, Physiotherapie, Orthesen), AU und Procedere.
-   Formatierung: Liste diese Punkte hintereinander auf, getrennt durch KOMMA (,).
-
-2. Danach: Füge eine LEERZEILE ein und schreibe exakt: 'Medikation:'
-
-3. Darunter:
-   - Jedes Medikament MUSS in eine NEUE ZEILE!
-   - Format: Wirkstoff/Name + Stärke + Schema (z.B. '1-0-1', 'tgl.', 'wchtl.', bei Tropfen 'ggt').
-   - Beispiel:
-     Medikation:
-     Ibuprofen 400mg 1-0-1
-     Paracetamol 500mg tgl.",
-                    Icd10 = "Liste die 3 wahrscheinlichsten Codes (Code - Text). Orthopädie: bevorzugt Kapitel M (Muskuloskelett)."
+                    A = GetDefaultAnamnesePromptOR(),
+                    Be = GetDefaultBefundPromptOR(),
+                    N = GetDefaultDiagnosenPrompt(),
+                    T = string.Empty,
+                    Icd10 = GetDefaultIcd10Prompt("Orthopädie")
                 }
             };
+        }
+
+        private static SubjectForm CreateDefaultNeurologieForm()
+        {
+            return new SubjectForm
+            {
+                Id = "neurologie",
+                DisplayName = "Neurologie",
+                Description = "Standard-ABeNT für neurologische Befunde.",
+                SectionPrompts = new AbentSectionPrompts
+                {
+                    A = GetDefaultAnamnesePromptNE(),
+                    Be = GetDefaultBefundPromptNE(),
+                    N = GetDefaultDiagnosenPrompt(),
+                    T = string.Empty,
+                    Icd10 = GetDefaultIcd10Prompt("Neurologie")
+                }
+            };
+        }
+
+        private static SubjectForm CreateDefaultEchokardiographieForm()
+        {
+            return new SubjectForm
+            {
+                Id = "echokardiographie",
+                DisplayName = "Echokardiographie",
+                Description = "Befundbericht für transthorakale/transösophageale Echokardiographie (kein Anamnese-Block).",
+                SectionPrompts = new AbentSectionPrompts
+                {
+                    A = string.Empty,
+                    Be = GetDefaultBefundPromptEcho(),
+                    N = GetDefaultDiagnosenPromptEcho(),
+                    T = string.Empty,
+                    Icd10 = GetDefaultIcd10Prompt("Kardiologie")
+                }
+            };
+        }
+
+        private static string GetDefaultBefundPromptEcho()
+        {
+            return @"FACH-MODUL BEFUND: ECHOKARDIOGRAPHIE
+
+Erstelle aus dem Transkript einen strukturierten echokardiographischen Befundbericht. Dokumentiere ausschließlich im Gespräch genannte oder diktierte Messwerte und Beurteilungen. Erfinde keine Befunde hinzu.
+
+Formatierung: Für jede untersuchte Struktur einen Block. Überschrift als eigene Zeile, darunter die Einzelbefunde durch Komma getrennt, Block mit Punkt abschließen. Leerzeile zwischen verschiedenen Struktur-Blöcken.
+
+Bildqualität:
+Wenn kommentiert: Beurteilung der Schallbedingungen (gut/eingeschränkt/schlecht), ggf. Grund (Adipositas, Emphysem, Lagerung).
+
+Linker Ventrikel (LV):
+Dimensionen (LVEDD, LVESD in mm), Wanddicken (IVSd, LVPWd in mm), LV-Masse/Index sofern angegeben. Wandbewegungsanalyse: global normokinetisch oder regionale Wandbewegungsstörungen (Segmentzuordnung nach 16/17-Segment-Modell sofern genannt). Systolische Funktion: LVEF (Simpson biplan, ggf. visuell geschätzt), GLS sofern gemessen. Diastolische Funktion: E/A-Verhältnis, E/e' (septal, lateral, Mittelwert), Dezelerationszeit, LAVI, Trikuspidalinsuffizienz-Geschwindigkeit, Einteilung Grad I-III sofern möglich.
+
+Rechter Ventrikel (RV):
+Dimensionen (RVEDD, RV basaler Durchmesser), TAPSE, S' (Gewebedoppler), FAC sofern gemessen. RV-Funktion: normal/eingeschränkt.
+
+Vorhöfe:
+LA-Diameter (parasternal), LA-Volumenindex (LAVI), RA-Fläche/Volumen sofern angegeben.
+
+Aortenklappe (AV):
+Morphologie (trikuspidalisch/bikuspidalisch, Verkalkungsgrad), Öffnungsverhalten. Bei Stenose: Vmax, mittlerer Gradient, KÖF (Kontinuitätsgleichung), Dimensionsloser Index. Bei Insuffizienz: Grad (I-III), Jet-Richtung, Vena contracta, PISA sofern gemessen.
+
+Mitralklappe (MV):
+Morphologie (Segel, Anulus), Bewegungsmuster. Bei Insuffizienz: Grad (I-III), Jet-Richtung, Vena contracta, EROA, Regurgitationsvolumen sofern gemessen. Bei Stenose: MÖF (PHT, Planimetrie), mittlerer Gradient.
+
+Trikuspidalklappe (TV):
+Morphologie. Bei Insuffizienz: Grad, Vmax (zur Abschätzung des sPAP), geschätzter sPAP (= 4 x Vmax² + RAP).
+
+Pulmonalklappe (PV):
+AT (Akzelerationszeit), sofern untersucht. Insuffizienz: Grad, sofern vorhanden.
+
+Perikard:
+Erguss (keiner/gering/moderat/ausgeprägt), Lokalisation, diastolische Kompression von RA/RV sofern beurteilbar.
+
+Aorta:
+Aortenwurzel-Diameter, Aorta ascendens-Diameter sofern gemessen.
+
+Vena cava inferior (VCI):
+Durchmesser, Atemvariabilität (>50% / <50%), geschätzter RAP.
+
+Fallback (wenn keine Untersuchung stattfand):
+""Keine echokardiographischen Befunde dokumentiert.""";
+        }
+
+        private static string GetDefaultDiagnosenPromptEcho()
+        {
+            return @"Leite aus dem dokumentierten echokardiographischen Befund die Beurteilung ab.
+Gib die Diagnosen/Beurteilungen als Liste aus, eine pro Zeile. Verwende Fachterminologie.
+Sortierung: Hauptbefund zuerst, dann Nebenbefunde nach klinischer Relevanz absteigend.
+Kennzeichne den Sicherheitsgrad:
+Gesicherter Befund: nur Diagnosetext (z.B. ""Mitralinsuffizienz Grad II"")
+Verdacht: mit Präfix ""V.a.""
+Normalbefund: ""Strukturell und funktionell unauffälliges Echokardiogramm"" wenn alle Parameter normwertig.
+Wenn aus dem Diktat keine Beurteilung ableitbar: ""Keine Beurteilung aus den vorliegenden Informationen ableitbar.""";
         }
 
         /// <summary>Für app-config.json (nur UniversalPrompt).</summary>
