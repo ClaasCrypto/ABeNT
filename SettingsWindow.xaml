@@ -4,12 +4,28 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Einstellungen" Height="520" Width="540"
+        Title="Einstellungen" Height="620" Width="1080"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{StaticResource BackgroundPage}">
+    <Window.Resources>
+        <Style x:Key="SettingsTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource BauhausTextBoxStyle}">
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="8,5"/>
+        </Style>
+    </Window.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,20,24,20">
         <StackPanel>
+
+            <!-- Hinweis: zwei Zugänge nötig + Link README -->
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,14">
+                <Run Text="Sie benötigen "/>
+                <Run Text="einen" FontWeight="Bold"/>
+                <Run Text=" Zugang für Sprache-zu-Text und "/>
+                <Run Text="einen" FontWeight="Bold"/>
+                <Run Text=" für die Berichtserstellung (LLM). "/>
+                <Hyperlink x:Name="LnkReadme" RequestNavigate="LnkReadme_RequestNavigate">Ausführliche Anleitung (README)</Hyperlink>
+            </TextBlock>
 
             <!-- ═══════════════════════════════════════════════
                  Speech-to-Text Provider
@@ -29,23 +45,26 @@
             <!-- Deepgram fields -->
             <StackPanel x:Name="PanelDeepgram" Margin="0,0,0,14">
                 <TextBlock Text="Deepgram API Key:" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
-                <TextBox x:Name="TxtDeepgramKey" Style="{StaticResource BauhausTextBoxStyle}"/>
+                <TextBox x:Name="TxtDeepgramKey" Style="{StaticResource SettingsTextBoxStyle}"/>
             </StackPanel>
 
             <!-- Azure fields -->
             <StackPanel x:Name="PanelAzure" Visibility="Collapsed" Margin="0,0,0,14">
                 <TextBlock Text="Azure Speech Key:" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
-                <TextBox x:Name="TxtAzureKey" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8"/>
-                <TextBlock Text="Azure Region:" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
-                <TextBox x:Name="TxtAzureRegion" Style="{StaticResource BauhausTextBoxStyle}" Text="westeurope"/>
+                <TextBox x:Name="TxtAzureKey" Style="{StaticResource SettingsTextBoxStyle}" Margin="0,0,0,8"/>
+                <TextBlock FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4">
+                    <Run Text="Azure Region:"/>
+                    <Run Text=" Nur der Regionsname (z. B. westeurope, germanywestcentral). Bei URL wie https://…germanywestcentral.api.cognitive.microsoft.com/ nur germanywestcentral eintragen." FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                </TextBlock>
+                <TextBox x:Name="TxtAzureRegion" Style="{StaticResource SettingsTextBoxStyle}" Text="westeurope"/>
             </StackPanel>
 
             <!-- Custom fields -->
             <StackPanel x:Name="PanelCustom" Visibility="Collapsed" Margin="0,0,0,14">
                 <TextBlock Text="Endpoint URL:" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
-                <TextBox x:Name="TxtCustomEndpoint" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8"/>
+                <TextBox x:Name="TxtCustomEndpoint" Style="{StaticResource SettingsTextBoxStyle}" Margin="0,0,0,8"/>
                 <TextBlock Text="API Key (optional):" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
-                <TextBox x:Name="TxtCustomApiKey" Style="{StaticResource BauhausTextBoxStyle}"/>
+                <TextBox x:Name="TxtCustomApiKey" Style="{StaticResource SettingsTextBoxStyle}"/>
                 <TextBlock Text="Audio wird als POST body (audio/wav) gesendet. Auth via Bearer-Token."
                            FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,0"
                            TextWrapping="Wrap" FontStyle="Italic"/>
@@ -67,11 +86,43 @@
                 <ComboBoxItem Content="ChatGPT (OpenAI)"/>
                 <ComboBoxItem Content="Gemini (Google)"/>
                 <ComboBoxItem Content="Claude (Anthropic)" IsSelected="True"/>
+                <ComboBoxItem Content="Mistral (Mistral AI)"/>
             </ComboBox>
 
             <TextBlock x:Name="TxtLlmKeyLabel" Text="Anthropic Claude API Key:"
                        FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
-            <TextBox x:Name="TxtLlmKey" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,20"/>
+            <TextBox x:Name="TxtLlmKey" Style="{StaticResource SettingsTextBoxStyle}" Margin="0,0,0,20"/>
+
+            <!-- Trennlinie -->
+            <Rectangle Height="1" Fill="{StaticResource BorderLight}" Margin="0,4,0,14"/>
+
+            <!-- ═══════════════════════════════════════════════
+                 Update
+                 ═══════════════════════════════════════════════ -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <Rectangle Width="4" Height="16" Fill="{StaticResource AccentGreen}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <TextBlock Text="App-Update:" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimary}"/>
+                <TextBlock x:Name="TxtCurrentVersion" FontSize="12" Foreground="{StaticResource TextSecondary}"
+                           Margin="10,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <Button x:Name="BtnCheckUpdate" Content="Nach Updates suchen"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Padding="14,6" Click="BtnCheckUpdate_Click"/>
+                <TextBlock x:Name="TxtUpdateStatus" FontSize="12"
+                           Foreground="{StaticResource TextSecondary}"
+                           VerticalAlignment="Center" Margin="12,0,0,0"/>
+            </StackPanel>
+            <StackPanel x:Name="PanelUpdateAvailable" Visibility="Collapsed" Margin="0,4,0,10">
+                <TextBlock x:Name="TxtUpdateInfo" FontSize="12" Foreground="{StaticResource TextPrimary}"
+                           TextWrapping="Wrap" Margin="0,0,0,6"/>
+                <Button x:Name="BtnInstallUpdate" Content="Update herunterladen und installieren"
+                        Style="{StaticResource FilledAccentButtonStyle}"
+                        Padding="14,6" Click="BtnInstallUpdate_Click"/>
+                <ProgressBar x:Name="ProgressUpdate" Height="6" Margin="0,8,0,0"
+                             Visibility="Collapsed" Minimum="0" Maximum="100"/>
+            </StackPanel>
 
             <!-- ═══════════════════════════════════════════════
                  Buttons

@@ -11,11 +11,12 @@ namespace ABeNT.Model
         public string AzureSpeechRegion { get; set; } = "westeurope";
         public string CustomSttEndpoint { get; set; } = string.Empty;
         public string CustomSttApiKey { get; set; } = string.Empty;
-        /// <summary>Selected LLM: "ChatGPT", "Gemini", or "Claude".</summary>
+        /// <summary>Selected LLM: "ChatGPT", "Gemini", "Claude", or "Mistral".</summary>
         public string SelectedLlm { get; set; } = "Claude";
         public string OpenAiApiKey { get; set; } = string.Empty;
         public string GeminiApiKey { get; set; } = string.Empty;
         public string ClaudeApiKey { get; set; } = string.Empty;
+        public string MistralApiKey { get; set; } = string.Empty;
         public string Gender { get; set; } = "Neutral";
         public bool IncludeBefund { get; set; } = true;
         public bool IncludeTherapie { get; set; } = true;
@@ -32,6 +33,7 @@ namespace ABeNT.Model
             {
                 "ChatGPT" => OpenAiApiKey ?? string.Empty,
                 "Gemini" => GeminiApiKey ?? string.Empty,
+                "Mistral" => MistralApiKey ?? string.Empty,
                 _ => ClaudeApiKey ?? string.Empty
             };
         }

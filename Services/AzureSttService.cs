@@ -21,8 +21,8 @@ namespace ABeNT.Services
 
         public async Task<List<TranscriptSegment>> TranscribeAudioAsync(string filePath, RecorderReportOptions options)
         {
-            string speechKey = options.AzureSpeechKey;
-            string region = options.AzureSpeechRegion;
+            string speechKey = (options.AzureSpeechKey ?? "").Trim();
+            string region = (options.AzureSpeechRegion ?? "westeurope").Trim();
 
             if (string.IsNullOrWhiteSpace(speechKey))
                 throw new ArgumentException("Azure Speech Key ist erforderlich.");
@@ -52,7 +52,10 @@ namespace ABeNT.Services
 
             if (!response.IsSuccessStatusCode)
             {
-                string errorMsg = $"Azure Speech API Fehler:\nStatus: {response.StatusCode} ({(int)response.StatusCode})\n\nAntwort:\n{responseJson}";
+                string hint = (int)response.StatusCode == 401
+                    ? "\n\nHinweis: „Unauthorized“ bedeutet meist: falscher Key, Key und Region passen nicht zusammen (Key muss zur gewählten Region gehören), oder Leerzeichen beim Einfügen. In Azure Portal: Speech-Ressource → Schlüssel und Region prüfen."
+                    : "";
+                string errorMsg = $"Azure Speech API Fehler:\nStatus: {response.StatusCode} ({(int)response.StatusCode})\n\nAntwort:\n{responseJson}{hint}";
                 MessageBox.Show(errorMsg, "API Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
                 throw new HttpRequestException($"Azure Speech API Fehler: {response.StatusCode} - {responseJson}");
             }

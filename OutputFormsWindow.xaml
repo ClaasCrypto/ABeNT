@@ -68,45 +68,64 @@
             </Border>
             
             <!-- Formular-Detail -->
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="18,0,0,0">
-                <StackPanel x:Name="PanelFormDetail" Visibility="Collapsed">
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                        <TextBlock Text="Formular bearbeiten" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
-                        <Rectangle Width="16" Height="3" Fill="{StaticResource AccentCoral}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+            <Grid Grid.Column="1" Margin="18,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="PanelFormDetail" Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                            <TextBlock Text="Formular bearbeiten" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
+                            <Rectangle Width="16" Height="3" Fill="{StaticResource AccentCoral}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <TextBlock Text="Id (eindeutig, z. B. orthopaedie):" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
+                        <TextBox x:Name="TxtId" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12"/>
+
+                        <TextBlock Text="Anzeigename:" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
+                        <TextBox x:Name="TxtDisplayName" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12"/>
+
+                        <TextBlock Text="Beschreibung (optional):" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
+                        <TextBox x:Name="TxtDescription" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,18" Height="56" TextWrapping="Wrap" AcceptsReturn="True"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Ellipse Width="6" Height="6" Fill="{StaticResource AccentYellow}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Prompts pro ABeNT-Abschnitt (leer = Standard verwenden)" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                        </StackPanel>
+
+                        <TextBlock Text="A (Anamnese):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                        <TextBox x:Name="TxtPromptA" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+
+                        <TextBlock Text="Be (Befund):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                        <TextBox x:Name="TxtPromptBe" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+
+                        <TextBlock Text="N (Diagnose):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                        <TextBox x:Name="TxtPromptN" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+
+                        <TextBlock Text="ICD-10 (Codierung):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                        <TextBox x:Name="TxtPromptIcd10" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
                     </StackPanel>
-                    
-                    <TextBlock Text="Id (eindeutig, z. B. orthopaedie):" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
-                    <TextBox x:Name="TxtId" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12"/>
-                    
-                    <TextBlock Text="Anzeigename:" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
-                    <TextBox x:Name="TxtDisplayName" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12"/>
-                    
-                    <TextBlock Text="Beschreibung (optional):" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
-                    <TextBox x:Name="TxtDescription" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,18" Height="56" TextWrapping="Wrap" AcceptsReturn="True"/>
-                    
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <Ellipse Width="6" Height="6" Fill="{StaticResource AccentYellow}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Prompts pro ABeNT-Abschnitt (leer = Standard verwenden)" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
-                    </StackPanel>
-                    
-                    <TextBlock Text="A (Anamnese):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
-                    <TextBox x:Name="TxtPromptA" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
-                    
-                    <TextBlock Text="Be (Befund):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
-                    <TextBox x:Name="TxtPromptBe" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
-                    
-                    <TextBlock Text="N (Diagnose):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
-                    <TextBox x:Name="TxtPromptN" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
-                    
-                    <TextBlock Text="ICD-10 (Codierung):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
-                    <TextBox x:Name="TxtPromptIcd10" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,18" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
-                    
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                </ScrollViewer>
+
+                <Border Grid.Row="1"
+                        Margin="0,10,0,0"
+                        Padding="0,10,0,0"
+                        BorderBrush="{StaticResource BorderLight}"
+                        BorderThickness="0,1,0,0"
+                        Visibility="{Binding ElementName=PanelFormDetail, Path=Visibility}">
+                    <StackPanel Orientation="Horizontal">
                         <Button x:Name="BtnSaveForm" Content="Formular speichern"
                                 Style="{StaticResource FilledAccentButtonStyle}"
                                 Padding="16,8" FontSize="13"
                                 Margin="0,0,10,0"
                                 Click="BtnSaveForm_Click"/>
+                        <Button x:Name="BtnSaveAndTest" Content="Speichern und Testen"
+                                Style="{StaticResource FilledAccentButtonStyle}"
+                                Padding="16,8" FontSize="13"
+                                Margin="0,0,10,0"
+                                Click="BtnSaveAndTest_Click"/>
                         <Button x:Name="BtnGeneratePrompts" Content="Prompts generieren"
                                 Style="{StaticResource AccentButtonStyle}"
                                 Padding="16,8" FontSize="13"
@@ -118,8 +137,8 @@
                                 Visibility="Collapsed"
                                 Click="BtnRestoreDefault_Click"/>
                     </StackPanel>
-                </StackPanel>
-            </ScrollViewer>
+                </Border>
+            </Grid>
         </Grid>
         
         <!-- Fußzeile -->

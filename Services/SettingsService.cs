@@ -13,11 +13,12 @@ namespace ABeNT.Services
         public string AzureSpeechRegion { get; set; } = "westeurope";
         public string CustomSttEndpoint { get; set; } = string.Empty;
         public string CustomSttApiKey { get; set; } = string.Empty;
-        /// <summary>Selected LLM: "ChatGPT", "Gemini", or "Claude".</summary>
+        /// <summary>Selected LLM: "ChatGPT", "Gemini", "Claude", or "Mistral".</summary>
         public string SelectedLlm { get; set; } = "Claude";
         public string OpenAiApiKey { get; set; } = string.Empty;
         public string GeminiApiKey { get; set; } = string.Empty;
         public string ClaudeApiKey { get; set; } = string.Empty;
+        public string MistralApiKey { get; set; } = string.Empty;
         /// <summary>Bericht erstellen: Befund einbeziehen (wie bei letzter Aufzeichnung).</summary>
         public bool IncludeBefund { get; set; } = true;
         /// <summary>Bericht erstellen: Therapie einbeziehen (wie bei letzter Aufzeichnung).</summary>
@@ -98,6 +99,7 @@ namespace ABeNT.Services
             s.OpenAiApiKey = CryptoHelper.Encrypt(s.OpenAiApiKey);
             s.GeminiApiKey = CryptoHelper.Encrypt(s.GeminiApiKey);
             s.ClaudeApiKey = CryptoHelper.Encrypt(s.ClaudeApiKey);
+            s.MistralApiKey = CryptoHelper.Encrypt(s.MistralApiKey);
         }
 
         private static void DecryptKeys(AppSettings s)
@@ -108,6 +110,7 @@ namespace ABeNT.Services
             s.OpenAiApiKey = CryptoHelper.Decrypt(s.OpenAiApiKey);
             s.GeminiApiKey = CryptoHelper.Decrypt(s.GeminiApiKey);
             s.ClaudeApiKey = CryptoHelper.Decrypt(s.ClaudeApiKey);
+            s.MistralApiKey = CryptoHelper.Decrypt(s.MistralApiKey);
         }
 
         private static bool HasAnyKey(AppSettings s)
@@ -117,7 +120,8 @@ namespace ABeNT.Services
                 || !string.IsNullOrEmpty(s.CustomSttApiKey)
                 || !string.IsNullOrEmpty(s.OpenAiApiKey)
                 || !string.IsNullOrEmpty(s.GeminiApiKey)
-                || !string.IsNullOrEmpty(s.ClaudeApiKey);
+                || !string.IsNullOrEmpty(s.ClaudeApiKey)
+                || !string.IsNullOrEmpty(s.MistralApiKey);
         }
     }
 }

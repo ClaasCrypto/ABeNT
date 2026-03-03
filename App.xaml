@@ -7,38 +7,41 @@
              Bauhaus Design Tokens
              ══════════════════════════════════════════════════════════ -->
 
-        <!-- Hintergrund & Text -->
-        <SolidColorBrush x:Key="BackgroundPage"       Color="#FFF9F0"/>
-        <SolidColorBrush x:Key="TextPrimary"           Color="#000609"/>
-        <SolidColorBrush x:Key="TextSecondary"         Color="#5A5A5A"/>
+        <!-- Hintergrund und Text -->
+        <SolidColorBrush x:Key="BackgroundPage"       Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="TextPrimary"           Color="#2C3E50"/>
+        <SolidColorBrush x:Key="TextSecondary"         Color="#5A7080"/>
 
-        <!-- Akzentfarben -->
-        <SolidColorBrush x:Key="Accent"                Color="#2563EB"/>
-        <SolidColorBrush x:Key="AccentHover"           Color="#1D4FD8"/>
-        <SolidColorBrush x:Key="AccentRecord"          Color="#E63B2E"/>
-        <SolidColorBrush x:Key="AccentRecordHover"     Color="#C62E22"/>
-        <SolidColorBrush x:Key="AccentCoral"           Color="#E63B2E"/>
-        <SolidColorBrush x:Key="AccentYellow"          Color="#F5C542"/>
-        <SolidColorBrush x:Key="AccentPink"            Color="#F2A7BB"/>
-        <SolidColorBrush x:Key="AccentBlue"            Color="#2563EB"/>
-        <SolidColorBrush x:Key="FooterBackground"      Color="#2563EB"/>
-        <SolidColorBrush x:Key="Highlight"             Color="#F5C542"/>
+        <!-- Primärfarben (primaer-1 bis -4) -->
+        <SolidColorBrush x:Key="Accent"                Color="#558FC4"/>
+        <SolidColorBrush x:Key="AccentHover"           Color="#3E7AB0"/>
+        <SolidColorBrush x:Key="AccentBlue"            Color="#558FC4"/>
+        <SolidColorBrush x:Key="AccentGreen"           Color="#22C55E"/>
+        <SolidColorBrush x:Key="FooterBackground"      Color="#558FC4"/>
+
+        <!-- Akzentfarbe (pink) -->
+        <SolidColorBrush x:Key="AccentPink"            Color="#F072AB"/>
+        <SolidColorBrush x:Key="AccentPinkHover"       Color="#D95A92"/>
+        <SolidColorBrush x:Key="AccentRecord"          Color="#F072AB"/>
+        <SolidColorBrush x:Key="AccentRecordHover"     Color="#D95A92"/>
+        <SolidColorBrush x:Key="AccentCoral"           Color="#F072AB"/>
+        <SolidColorBrush x:Key="AccentYellow"          Color="#9DCAEC"/>
+        <SolidColorBrush x:Key="Highlight"             Color="#9DCAEC"/>
 
         <!-- Oberflächen -->
         <SolidColorBrush x:Key="CardBackground"        Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="CardHeaderBackground"  Color="#FFF4E6"/>
-        <SolidColorBrush x:Key="BorderLight"           Color="#D4D0C8"/>
+        <SolidColorBrush x:Key="CardHeaderBackground"  Color="#DBECF9"/>
+        <SolidColorBrush x:Key="BorderLight"           Color="#C5E0F5"/>
         <SolidColorBrush x:Key="InputBackground"       Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="InputBorder"           Color="#C8C4BC"/>
-        <SolidColorBrush x:Key="InputBorderFocused"    Color="#2563EB"/>
+        <SolidColorBrush x:Key="InputBorder"           Color="#C5E0F5"/>
+        <SolidColorBrush x:Key="InputBorderFocused"    Color="#558FC4"/>
 
         <!-- ══════════════════════════════════════════════════════════
              Globale Basis-Styles
              ══════════════════════════════════════════════════════════ -->
 
-        <!-- Noto Sans global (fällt auf Segoe UI zurück falls nicht installiert) -->
         <Style TargetType="{x:Type Window}">
-            <Setter Property="FontFamily" Value="Noto Sans, Segoe UI"/>
+            <Setter Property="FontFamily" Value="Open Sans, Segoe UI"/>
             <Setter Property="FontSize"   Value="14"/>
             <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
         </Style>
@@ -47,7 +50,7 @@
              Button-Styles (Bauhaus: abgerundete Pill-Form, Outline)
              ══════════════════════════════════════════════════════════ -->
 
-        <!-- Primärer Akzent-Button (Outline Pill) -->
+        <!-- Primärer Akzent-Button (Outline, Mittelblau) -->
         <Style x:Key="AccentButtonStyle" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
             <Setter Property="Foreground"       Value="{StaticResource Accent}"/>
@@ -65,7 +68,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="20"
+                                CornerRadius="5"
                                 Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center"
@@ -90,11 +93,11 @@
             </Setter>
         </Style>
 
-        <!-- Gefüllter Primär-Button (für Haupt-CTAs) -->
+        <!-- Gefüllter Primär-Button (Pink-Akzent für Haupt-CTAs) -->
         <Style x:Key="FilledAccentButtonStyle" TargetType="Button">
-            <Setter Property="Background"      Value="{StaticResource Accent}"/>
+            <Setter Property="Background"      Value="{StaticResource AccentPink}"/>
             <Setter Property="Foreground"       Value="White"/>
-            <Setter Property="BorderBrush"      Value="{StaticResource Accent}"/>
+            <Setter Property="BorderBrush"      Value="{StaticResource AccentPink}"/>
             <Setter Property="BorderThickness"  Value="1.5"/>
             <Setter Property="Padding"          Value="20,10"/>
             <Setter Property="FontSize"         Value="14"/>
@@ -108,7 +111,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="20"
+                                CornerRadius="5"
                                 Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center"
@@ -116,12 +119,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background"   Value="{StaticResource AccentHover}"/>
-                                <Setter TargetName="border" Property="BorderBrush"   Value="{StaticResource AccentHover}"/>
+                                <Setter TargetName="border" Property="Background"   Value="{StaticResource AccentPinkHover}"/>
+                                <Setter TargetName="border" Property="BorderBrush"   Value="{StaticResource AccentPinkHover}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background"   Value="#1A3FB0"/>
-                                <Setter TargetName="border" Property="BorderBrush"   Value="#1A3FB0"/>
+                                <Setter TargetName="border" Property="Background"   Value="#C04E82"/>
+                                <Setter TargetName="border" Property="BorderBrush"   Value="#C04E82"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="border" Property="Opacity" Value="0.4"/>
@@ -150,7 +153,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="24"
+                                CornerRadius="5"
                                 Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center"
@@ -192,7 +195,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="20"
+                                CornerRadius="5"
                                 Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center"
@@ -200,8 +203,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background"   Value="{StaticResource CardHeaderBackground}"/>
-                                <Setter TargetName="border" Property="BorderBrush"   Value="{StaticResource TextSecondary}"/>
+                                <Setter TargetName="border" Property="Background"   Value="#DBECF9"/>
+                                <Setter TargetName="border" Property="BorderBrush"   Value="{StaticResource Accent}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="border" Property="Opacity" Value="0.4"/>

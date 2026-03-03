@@ -18,7 +18,7 @@ namespace ABeNT.Services
             _httpClient = new HttpClient();
         }
 
-        /// <summary>Generate ABeNT report using the LLM selected in options. Supports ChatGPT, Gemini, Claude.</summary>
+        /// <summary>Generate ABeNT report using the LLM selected in options. Supports ChatGPT, Gemini, Claude, Mistral.</summary>
         public async Task<string> GenerateAbentReportAsync(
             string rawTranscript,
             RecorderReportOptions options,
@@ -41,6 +41,7 @@ namespace ABeNT.Services
             {
                 "ChatGPT" => await CallOpenAiAsync(systemPrompt, userMessage, options.OpenAiApiKey ?? "", cancellationToken),
                 "Gemini" => await CallGeminiAsync(systemPrompt, userMessage, options.GeminiApiKey ?? "", cancellationToken),
+                "Mistral" => await CallMistralAsync(systemPrompt, userMessage, options.MistralApiKey ?? "", cancellationToken),
                 _ => await CallClaudeAsync(systemPrompt, userMessage, options.ClaudeApiKey ?? "", cancellationToken)
             };
         }
@@ -76,6 +77,30 @@ namespace ABeNT.Services
             if (string.IsNullOrWhiteSpace(text))
                 throw new Exception("Keine Antwort von OpenAI erhalten.");
             return text.Trim();
+        }
+
+        private async Task<string> CallMistralAsync(string systemPrompt, string userMessage, string apiKey, CancellationToken cancellationToken)
+        {
+            var body = new
+            {
+                model = "mistral-large-latest",
+                max_tokens = 4096,
+                messages = new[]
+                {
+                    new { role = "system", content = systemPrompt },
+                    new { role = "user", content = userMessage }
+                }
+            };
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.mistral.ai/v1/chat/completions")
+            {
+                Content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json")
+            };
+            request.Headers.Add("Authorization", "Bearer " + apiKey.Trim());
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            string json = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException($"Mistral API Fehler ({response.StatusCode}): {json}");
+            return ParseOpenAiResponse(json);
         }
 
         private async Task<string> CallGeminiAsync(string systemPrompt, string userMessage, string apiKey, CancellationToken cancellationToken)

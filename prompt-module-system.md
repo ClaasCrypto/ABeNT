@@ -107,7 +107,7 @@ Beginne mit dem Vorstellungsgrund. Fasse die aktuelle Symptomatik zusammen: Loka
 Vorerkrankungen / Spezielle Anamnese:
 Alle genannten chronischen Erkrankungen, relevante Vordiagnosen, Operationen, Krankenhausaufenthalte, kommagetrennt.
 Fachspezifische Ergänzung: Impfstatus, Vorsorgeuntersuchungen, familiäre Belastung (kardiovaskulär, Diabetes, Tumorerkrankungen) sofern erwähnt.
-Fallback: "Keine relevanten Vorerkrankungen eruierbar."
+Fallback: "k. A." wenn nicht erwähnt, "keine" wenn Patient explizit keine Nebendiagnosen oder Vorerkrankungen hat.
 
 Dauermedikation:
 Jedes Medikament in eine neue Zeile. Format: Name Dosierung Einnahmeschema (z.B. Metformin 1000 mg 1-0-1).
@@ -142,7 +142,7 @@ Beginne mit dem Vorstellungsgrund (z.B. "Vorstellung aufgrund persistierender Go
 
 Vorerkrankungen / Spezielle Anamnese:
 Orthopädische Voroperationen, Frakturen, bekannte degenerative Veränderungen, rheumatologische Grunderkrankungen, sonstige relevante Begleitdiagnosen, kommagetrennt.
-Fallback: "Keine relevanten Vorerkrankungen eruierbar."
+Fallback: "k. A." wenn nicht erwähnt, "keine" wenn Patient explizit keine Nebendiagnosen oder Vorerkrankungen hat.
 
 Dauermedikation:
 Jedes Medikament in eine neue Zeile. Format: Name Dosierung Einnahmeschema (z.B. Ibuprofen 600 mg 1-0-1).
@@ -180,7 +180,7 @@ Bei Anfallsleiden: Anfallstyp, Frequenz, letzte Episode, Prodromi, postiktale Ph
 
 Vorerkrankungen / Spezielle Anamnese:
 Neurologische Vorerkrankungen (Epilepsie, MS, Schlaganfall, Polyneuropathie), psychiatrische Komorbidität, Schädel-Hirn-Traumata, neurochirurgische Eingriffe, vaskuläre Risikofaktoren (arterielle Hypertonie, Diabetes, Vorhofflimmern, Hyperlipidämie), Familienanamnese für neurologische Erkrankungen, kommagetrennt.
-Fallback: "Keine relevanten Vorerkrankungen eruierbar."
+Fallback: "k. A." wenn nicht erwähnt, "keine" wenn Patient explizit keine Nebendiagnosen oder Vorerkrankungen hat.
 
 Dauermedikation:
 Jedes Medikament in eine neue Zeile. Format: Name Dosierung Einnahmeschema (z.B. Levetiracetam 500 mg 1-0-1).

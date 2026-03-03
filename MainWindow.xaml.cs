@@ -59,6 +59,7 @@ namespace ABeNT
             {
                 "ChatGPT" => settings.OpenAiApiKey ?? "",
                 "Gemini" => settings.GeminiApiKey ?? "",
+                "Mistral" => settings.MistralApiKey ?? "",
                 _ => settings.ClaudeApiKey ?? ""
             };
             bool llmOk = !string.IsNullOrWhiteSpace(llmKey);
@@ -119,6 +120,7 @@ namespace ABeNT
                 OpenAiApiKey = settings.OpenAiApiKey ?? string.Empty,
                 GeminiApiKey = settings.GeminiApiKey ?? string.Empty,
                 ClaudeApiKey = settings.ClaudeApiKey ?? string.Empty,
+                MistralApiKey = settings.MistralApiKey ?? string.Empty,
                 Gender = "Neutral",
                 IncludeBefund = ChkBefund.IsChecked ?? false,
                 IncludeTherapie = false,
@@ -319,6 +321,35 @@ namespace ABeNT
             }
         }
 
+        /// <summary>
+        /// Displays a report result in the regular result area (Anamnese, Befund, Diagnosen).
+        /// Used e.g. when running the example transcript test from the forms window.
+        /// </summary>
+        public void DisplayReportResult(string fullText)
+        {
+            if (string.IsNullOrWhiteSpace(fullText)) return;
+            ParseAndDisplayResult(fullText);
+            SaveDocumentation(fullText);
+            LoadDocumentations();
+            Activate();
+        }
+
+        /// <summary>
+        /// Sets the selected form (Fachgebiet) in the main window by form Id.
+        /// Used so that after a test from the forms window, the main window shows the same form that was tested.
+        /// </summary>
+        public void SetSelectedFormId(string? formId)
+        {
+            if (string.IsNullOrWhiteSpace(formId)) return;
+            var forms = Services.OutputFormsService.GetForms();
+            var form = forms.FirstOrDefault(f => string.Equals(f.Id, formId, StringComparison.OrdinalIgnoreCase));
+            if (form == null) return;
+            CmbSubjectForm.SelectedItem = form;
+            var settings = SettingsService.LoadSettings();
+            settings.LastSelectedFormId = form.Id ?? string.Empty;
+            SettingsService.SaveSettings(settings);
+        }
+
         private void ParseAndDisplayResult(string fullText)
         {
             TxtAnamnese.Text = "";
@@ -432,7 +463,6 @@ namespace ABeNT
             return string.Join(Environment.NewLine, result);
         }
 
-        /// <summary>Entfernt die Zeile "ANAMNESE" und die Überschrift "Jetziges Leiden:" aus dem Anamnese-Text (nur eine gültige Variante).</summary>
         private static string StripAnamneseHeaders(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return text;
@@ -445,7 +475,13 @@ namespace ABeNT
                     continue;
                 if (t.StartsWith("Jetziges Leiden:", StringComparison.OrdinalIgnoreCase))
                 {
-                    string rest = t.Length > 15 ? t.Substring(15).Trim() : "";
+                    string rest = t.Substring("Jetziges Leiden:".Length).Trim();
+                    if (!string.IsNullOrEmpty(rest)) result.Add(rest);
+                    continue;
+                }
+                if (t.StartsWith("Aktuell:", StringComparison.OrdinalIgnoreCase))
+                {
+                    string rest = t.Substring("Aktuell:".Length).Trim();
                     if (!string.IsNullOrEmpty(rest)) result.Add(rest);
                     continue;
                 }

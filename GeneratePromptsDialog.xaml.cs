@@ -38,6 +38,7 @@ namespace ABeNT
             {
                 "ChatGPT" => settings.OpenAiApiKey ?? "",
                 "Gemini" => settings.GeminiApiKey ?? "",
+                "Mistral" => settings.MistralApiKey ?? "",
                 _ => settings.ClaudeApiKey ?? ""
             };
 

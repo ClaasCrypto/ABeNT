@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using ABeNT.Model;
@@ -13,6 +14,7 @@ namespace ABeNT
     {
         private List<SubjectForm> _forms = new List<SubjectForm>();
         private string? _editingFormId; // null = new form, not yet saved
+        private readonly LlmService _llmService = new LlmService();
 
         public OutputFormsWindow()
         {
@@ -174,12 +176,18 @@ namespace ABeNT
 
         private void BtnSaveForm_Click(object sender, RoutedEventArgs e)
         {
+            TrySaveForm(showSuccessMessage: true);
+        }
+
+        /// <summary>Saves the current form. Returns true on success. Optionally shows a success message.</summary>
+        private bool TrySaveForm(bool showSuccessMessage)
+        {
             string id = (TxtId.Text ?? string.Empty).Trim();
             string displayName = (TxtDisplayName.Text ?? string.Empty).Trim();
             if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(displayName))
             {
                 MessageBox.Show("Id und Anzeigename müssen ausgefüllt sein.", "Hinweis", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                return false;
             }
             id = NormalizeId(id);
             string? description = (TxtDescription.Text ?? string.Empty).Trim();
@@ -207,28 +215,82 @@ namespace ABeNT
                 if (_editingFormId == null || !_forms.Any(f => string.Equals(f.Id, _editingFormId, StringComparison.OrdinalIgnoreCase)))
                 {
                     OutputFormsService.AddForm(form);
-                    MessageBox.Show("Formular hinzugefügt.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (showSuccessMessage) MessageBox.Show("Formular hinzugefügt.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 else if (idChanged)
                 {
                     OutputFormsService.RemoveForm(_editingFormId);
                     OutputFormsService.AddForm(form);
-                    MessageBox.Show("Formular unter neuer Id gespeichert.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (showSuccessMessage) MessageBox.Show("Formular unter neuer Id gespeichert.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 else
                 {
                     OutputFormsService.UpdateForm(form);
-                    MessageBox.Show("Formular gespeichert.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (showSuccessMessage) MessageBox.Show("Formular gespeichert.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 _editingFormId = id;
                 TxtId.IsReadOnly = true;
                 RefreshFormList();
                 int idx = _forms.FindIndex(f => string.Equals(f.Id, id, StringComparison.OrdinalIgnoreCase));
                 if (idx >= 0) LstForms.SelectedIndex = idx;
+                return true;
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+        }
+
+        private async void BtnSaveAndTest_Click(object sender, RoutedEventArgs e)
+        {
+            if (!TrySaveForm(showSuccessMessage: false))
+                return;
+
+            string transcript = ExampleTranscriptService.GetDefaultTranscript();
+            var settings = SettingsService.LoadSettings();
+            var form = LstForms.SelectedItem as SubjectForm;
+            var options = new RecorderReportOptions
+            {
+                SelectedLlm = settings.SelectedLlm ?? "Claude",
+                OpenAiApiKey = settings.OpenAiApiKey ?? string.Empty,
+                GeminiApiKey = settings.GeminiApiKey ?? string.Empty,
+                ClaudeApiKey = settings.ClaudeApiKey ?? string.Empty,
+                MistralApiKey = settings.MistralApiKey ?? string.Empty,
+                Gender = "Männlich",
+                IncludeBefund = settings.IncludeBefund,
+                IncludeTherapie = settings.IncludeTherapie,
+                IncludeIcd10 = settings.SuggestIcd10,
+                RecordingMode = "Neupatient",
+                FormId = form?.Id
+            };
+
+            string? apiKey = options.GetLlmApiKey();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                MessageBox.Show($"Bitte tragen Sie in den Einstellungen einen API-Key für {options.SelectedLlm} ein.", "API-Key fehlt", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            BtnSaveAndTest.IsEnabled = false;
+            try
+            {
+                string result = await _llmService.GenerateAbentReportAsync(transcript, options, CancellationToken.None);
+                var mainWindow = Owner as MainWindow;
+                if (mainWindow != null)
+                {
+                    mainWindow.DisplayReportResult(result);
+                    mainWindow.SetSelectedFormId(form?.Id);
+                }
+                Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Fehler beim Test", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                BtnSaveAndTest.IsEnabled = true;
             }
         }
 

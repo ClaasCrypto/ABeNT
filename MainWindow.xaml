@@ -73,7 +73,7 @@
             <Setter Property="AcceptsReturn" Value="True"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FontFamily" Value="Noto Sans, Segoe UI"/>
+            <Setter Property="FontFamily" Value="Open Sans, Segoe UI"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Padding" Value="18,14"/>
             <Setter Property="Background" Value="{StaticResource CardBackground}"/>
@@ -106,21 +106,13 @@
                     BorderThickness="0,0,1,1"
                     Padding="20,20">
                 <StackPanel>
-                    <!-- App-Titel mit geometrischem Akzent -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                        <!-- Bauhaus geometrisches Element: Kreis -->
-                        <Ellipse Width="14" Height="14" Fill="{StaticResource AccentCoral}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                        <Ellipse Width="10" Height="10" Fill="{StaticResource AccentYellow}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <Image Source="Assets/logo.png" Height="36" Margin="0,0,10,0" VerticalAlignment="Center"/>
                         <TextBlock Text="ABeNT" 
                                    FontSize="26" 
                                    FontWeight="Bold" 
                                    Foreground="{StaticResource TextPrimary}"
                                    VerticalAlignment="Center"/>
-                        <!-- Bauhaus Dreiecks-Akzent -->
-                        <Polygon Points="0,12 6,0 12,12" 
-                                 Fill="{StaticResource AccentBlue}" 
-                                 Margin="8,0,0,0" 
-                                 VerticalAlignment="Center"/>
                     </StackPanel>
 
                     <TextBlock Text="Berichtsformular (Fachrichtung):" 

@@ -9,40 +9,51 @@ namespace ABeNT.Services
             var sb = new StringBuilder();
 
             sb.AppendLine("Du bist ein medizinischer Dokumentations-Experte und Prompt-Engineer.");
-            sb.AppendLine("Erstelle Prompt-Anweisungen für ein KI-System, das Arzt-Patienten-Gespräche in strukturierte Berichte umwandelt.");
+            sb.AppendLine("Deine Aufgabe: Erstelle Prompt-Anweisungen für ein KI-System, das Arzt-Patienten-Gespräche");
+            sb.AppendLine("in strukturierte medizinische Berichte (nach dem ABeNT-Schema) umwandelt.");
             sb.AppendLine();
             sb.AppendLine($"Fachgebiet: {fachgebiet}");
             if (!string.IsNullOrWhiteSpace(untersuchung))
                 sb.AppendLine($"Spezielle Untersuchung / Kontext: {untersuchung}");
             sb.AppendLine();
 
-            sb.AppendLine("WICHTIGE KONTEXTINFO: Folgende Basisregeln sind BEREITS global definiert und dürfen NICHT in den Fach-Modulen wiederholt werden:");
-            sb.AppendLine("- Anamnese: Nominalstil, Unterkategorien als Überschriftszeilen, Standard-Fallbacks für alle Kategorien");
-            sb.AppendLine("- Befund: Nur dokumentierte Untersuchungen, Blockformat pro Bereich, Vitalparameter zuerst");
-            sb.AppendLine("Die Fach-Module enthalten NUR die fachspezifischen Abweichungen und Details.");
+            sb.AppendLine("═══════════════════════════════════════════");
+            sb.AppendLine("REFERENZ-BEISPIELE (Stil und Detailtiefe übernehmen)");
+            sb.AppendLine("═══════════════════════════════════════════");
             sb.AppendLine();
 
-            sb.AppendLine("--- REFERENZ (zeigt den erwarteten Stil und Umfang) ---");
             if (includeAnamnese)
             {
+                sb.AppendLine("--- REFERENZ: Allgemeinmedizin-Anamnese ---");
                 sb.AppendLine(GetReferenceAnamneseAM());
                 sb.AppendLine();
+                sb.AppendLine("--- REFERENZ: Orthopädie-Anamnese (Auszug, zeigt fachspezifische Anpassung) ---");
+                sb.AppendLine(GetReferenceAnamneseOR());
+                sb.AppendLine();
             }
+
+            sb.AppendLine("--- REFERENZ: Allgemeinmedizin-Befund ---");
             sb.AppendLine(GetReferenceBefundAM());
             sb.AppendLine();
+
+            sb.AppendLine("--- REFERENZ: Diagnosen ---");
             sb.AppendLine(GetReferenceDiagnosen());
             sb.AppendLine();
+
+            sb.AppendLine("--- REFERENZ: ICD-10 ---");
             sb.AppendLine(GetReferenceIcd10());
             sb.AppendLine();
 
-            sb.AppendLine("--- DEINE AUFGABE ---");
+            sb.AppendLine("═══════════════════════════════════════════");
+            sb.AppendLine("DEINE AUFGABE");
+            sb.AppendLine("═══════════════════════════════════════════");
             sb.AppendLine();
-            sb.AppendLine($"Erstelle die Prompt-Module für \"{fachgebiet}\".");
-            sb.AppendLine("Regeln:");
-            sb.AppendLine("- NUR fachspezifische Delta-Anweisungen, keine allgemeinen Regeln wiederholen");
-            sb.AppendLine("- Halte jeden Abschnitt unter 150 Wörter (tokeneffizient)");
-            sb.AppendLine("- Verwende typische Untersuchungen, Symptome und Terminologie des Fachgebiets");
-            sb.AppendLine("- Priorisiere fachspezifische ICD-10-Kapitel");
+            sb.AppendLine($"Erstelle jetzt für das Fachgebiet \"{fachgebiet}\" die folgenden Prompt-Module.");
+            sb.AppendLine("Orientiere dich exakt am Stil, der Struktur und der Detailtiefe der Referenz-Beispiele.");
+            sb.AppendLine("Passe die Inhalte fachspezifisch an:");
+            sb.AppendLine("- Verwende die typischen Untersuchungen, Symptome und Terminologie des Fachgebiets");
+            sb.AppendLine("- Definiere fachspezifische Fallback-Sätze");
+            sb.AppendLine("- Priorisiere die für das Fachgebiet relevanten ICD-10-Kapitel");
             sb.AppendLine();
 
             if (includeAnamnese)
@@ -90,30 +101,58 @@ namespace ABeNT.Services
         {
             return @"FACH-MODUL ANAMNESE: ALLGEMEINMEDIZIN
 
-Jetziges Leiden:
-Vorstellungsgrund, aktuelle Symptomatik: Lokalisation, Charakter, Dauer, Auslöser, zeitlicher Verlauf, Begleitsymptome. Bisherige Selbstmedikation oder Akutbehandlungen.
+Erstelle aus dem Transkript die Anamnese im Nominalstil oder in kurzen, objektiven Sätzen. Vergiss kein medizinisches Detail, lasse aber Smalltalk und irrelevante Gesprächsanteile rigoros weg.
 
-Vorerkrankungen:
-Ergänze: Impfstatus, Vorsorgeuntersuchungen, familiäre Belastung (kardiovaskulär, Diabetes, Tumorerkrankungen) sofern erwähnt.
+Formatierung: Schreibe jede Unterkategorie als eigene Überschriftszeile, darunter den Inhalt als Fließtext oder kommagetrennte Aufzählung. Trenne Unterkategorien durch eine Leerzeile.
+
+Jetziges Leiden:
+Beginne mit dem Vorstellungsgrund. Fasse die aktuelle Symptomatik zusammen: Lokalisation, Charakter, Dauer, Auslöser, zeitlicher Verlauf, Begleitsymptome.
+
+Vorerkrankungen / Spezielle Anamnese:
+Alle genannten chronischen Erkrankungen, relevante Vordiagnosen, Operationen, Krankenhausaufenthalte.
+Fallback: ""k. A."" wenn nicht erwähnt, ""keine"" wenn Patient explizit keine Nebendiagnosen oder Vorerkrankungen hat.
 
 Dauermedikation:
-Format: Name Dosierung Einnahmeschema (z.B. Metformin 1000 mg 1-0-1).
+Jedes Medikament in eine neue Zeile. Format: Name Dosierung Einnahmeschema.
+Fallback: ""Aktuell keine regelmäßige Medikamenteneinnahme bekannt.""
+
+Allergien / Unverträglichkeiten:
+Auslöser und Reaktionstyp sofern genannt.
+Fallback: ""Keine Allergien oder Unverträglichkeiten bekannt.""
 
 Vegetative Anamnese:
-B-Symptomatik (Fieber, Nachtschweiß, Gewichtsverlust), Appetit, Schlaf, Miktion, Stuhlgang.
+B-Symptomatik, Appetit, Schlaf, Miktion, Stuhlgang.
+Fallback: ""Vegetative Anamnese im Gespräch nicht erhoben.""
 
 Noxen / Sozialanamnese:
-Nikotinkonsum (pack years), Alkohol, Drogen, Beruf, häusliche Situation, Pflegebedarf.";
+Nikotinkonsum, Alkoholkonsum, Beruf, häusliche Situation.
+Fallback: ""Noxenanamnese nicht erhoben. Sozialanamnese unauffällig.""";
+        }
+
+        private static string GetReferenceAnamneseOR()
+        {
+            return @"FACH-MODUL ANAMNESE: ORTHOPÄDIE
+[Gleiche Struktur wie Allgemeinmedizin, aber fachspezifisch angepasst:]
+- Jetziges Leiden betont: Schmerzlokalisation, Seitenangabe, Ausstrahlung, Schmerzcharakter, Auslöser (Trauma/Belastung/spontan)
+- Vorerkrankungen betont: orthopädische Voroperationen, Frakturen, degenerative Veränderungen
+- Noxen/Sozialanamnese betont: körperliche Belastung, sportliche Aktivität, Hilfsmittelbedarf";
         }
 
         private static string GetReferenceBefundAM()
         {
             return @"FACH-MODUL BEFUND: ALLGEMEINMEDIZIN
 
-Vitalparameter: RR, Puls, Temperatur, SpO2, Gewicht, Größe.
+Erstelle aus dem Transkript den klinischen Untersuchungsbefund. Dokumentiere ausschließlich im Gespräch genannte oder durchgeführte Untersuchungen. Erfinde keine Befunde hinzu.
 
-Organsysteme (nur wenn untersucht):
-AZ/EZ. Haut/Schleimhäute. Kopf/Hals (LK, Schilddrüse). Herz (Rhythmus, Töne, Geräusche). Lunge (Atemgeräusch, RG, Perkussion). Abdomen (DG, Druckschmerz, Resistenzen). Extremitäten (Ödeme, Pulse). Neurologie orientierend.";
+Formatierung: Für jedes untersuchte Organsystem einen Block. Überschrift: ""Befund [Organsystem]:"". Darunter die Einzelbefunde, durch Komma getrennt, Block mit Punkt abschließen.
+
+Vitalparameter:
+Wenn genannt: RR, Puls, Temperatur, SpO2, Gewicht, Größe.
+
+Relevante Organsysteme (nur dokumentieren wenn untersucht):
+Allgemeinzustand, Haut, Kopf/Hals, Herz, Lunge, Abdomen, Extremitäten, Neurologie orientierend.
+
+Fallback: ""Keine Untersuchungsergebnisse dokumentiert.""";
         }
 
         private static string GetReferenceDiagnosen()

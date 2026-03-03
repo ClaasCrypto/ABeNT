@@ -25,7 +25,7 @@
             </Grid.ColumnDefinitions>
             <!-- Mikrofon-Label -->
             <StackPanel Grid.Column="0" Orientation="Horizontal">
-                <Ellipse Width="10" Height="10" Fill="{StaticResource AccentCoral}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <Image Source="Assets/logo.png" Height="20" Margin="0,0,8,0" VerticalAlignment="Center"/>
                 <TextBlock Text="Eingangskanal (Mikrofon):" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
             </StackPanel>
             <!-- Geschlecht-Label -->
