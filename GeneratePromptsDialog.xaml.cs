@@ -97,11 +97,11 @@ namespace ABeNT
         {
             GeneratedA = includeAnamnese ? ExtractSection(response, "===A===", "===Be===") : "";
             GeneratedBe = ExtractSection(response, "===Be===", "===N===");
-            GeneratedN = ExtractSection(response, "===N===", "===Icd10===");
-            GeneratedIcd10 = ExtractSection(response, "===Icd10===", "===END===");
+            GeneratedN = ExtractSection(response, "===N===", "===END===");
+            GeneratedIcd10 = string.Empty;
 
             if (string.IsNullOrWhiteSpace(GeneratedBe) && string.IsNullOrWhiteSpace(GeneratedN))
-                throw new Exception("LLM-Antwort konnte nicht geparst werden (Delimiter ===A===, ===Be===, ===N===, ===Icd10===, ===END=== nicht gefunden). Bitte erneut versuchen.");
+                throw new Exception("LLM-Antwort konnte nicht geparst werden (Delimiter ===A===, ===Be===, ===N===, ===END=== nicht gefunden). Bitte erneut versuchen.");
         }
 
         private static string ExtractSection(string text, string startMarker, string endMarker)

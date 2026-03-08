@@ -361,10 +361,9 @@ namespace ABeNT
                 return;
             }
 
-            var patternA = @"\*\*A\*\*\s*[-–]?\s*(.*?)(?=\*\*Be\*\*|\*\*N\*\*|\*\*T\*\*|\*\*ICD-10\*\*|$)";
-            var patternBe = @"\*\*Be\*\*\s*[-–]?\s*(.*?)(?=\*\*N\*\*|\*\*T\*\*|\*\*ICD-10\*\*|$)";
-            var patternN = @"\*\*N\*\*\s*[-–]?\s*(.*?)(?=\*\*T\*\*|\*\*ICD-10\*\*|$)";
-            var patternIcd = @"\*\*ICD-10\*\*\s*[-–]?\s*(.*?)$";
+            var patternA = @"\*\*A\*\*\s*[-–]?\s*(.*?)(?=\*\*Be\*\*|\*\*N\*\*|\*\*T\*\*|$)";
+            var patternBe = @"\*\*Be\*\*\s*[-–]?\s*(.*?)(?=\*\*N\*\*|\*\*T\*\*|$)";
+            var patternN = @"\*\*N\*\*\s*[-–]?\s*(.*?)(?=\*\*T\*\*|$)";
 
             var matchA = Regex.Match(fullText, patternA, RegexOptions.Singleline | RegexOptions.IgnoreCase);
             if (matchA.Success && matchA.Groups.Count > 1)
@@ -378,89 +377,11 @@ namespace ABeNT
                 TxtBefund.Text = CleanText(matchBe.Groups[1].Value);
             }
 
-            // Diagnosen und ICD-10 in einer Karte zusammenführen
-            string diagnosen = "";
             var matchN = Regex.Match(fullText, patternN, RegexOptions.Singleline | RegexOptions.IgnoreCase);
             if (matchN.Success && matchN.Groups.Count > 1)
-                diagnosen = CleanText(matchN.Groups[1].Value);
-
-            var matchIcd = Regex.Match(fullText, patternIcd, RegexOptions.Singleline | RegexOptions.IgnoreCase);
-            if (matchIcd.Success && matchIcd.Groups.Count > 1)
             {
-                string icdText = CleanText(matchIcd.Groups[1].Value);
-                if (!string.IsNullOrWhiteSpace(icdText))
-                    diagnosen = MergeDiagnosenWithIcd(diagnosen, icdText);
+                TxtDiagnose.Text = CleanText(matchN.Groups[1].Value);
             }
-
-            TxtDiagnose.Text = diagnosen;
-        }
-
-        /// <summary>
-        /// Merges the N (diagnoses) and ICD-10 blocks into one display:
-        /// each diagnosis line gets its ICD-10 code appended in parentheses.
-        /// </summary>
-        private static string MergeDiagnosenWithIcd(string diagnosen, string icd10)
-        {
-            if (string.IsNullOrWhiteSpace(diagnosen))
-                return icd10;
-            if (string.IsNullOrWhiteSpace(icd10))
-                return diagnosen;
-
-            var diagLines = diagnosen.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-            var icdLines = icd10.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-
-            var icdMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string line in icdLines)
-            {
-                string trimmed = line.Trim();
-                if (string.IsNullOrEmpty(trimmed)) continue;
-                // ICD-10 lines: "M54.5 Lumbago" or "M54.5G Lumbago re." — extract code
-                var m = Regex.Match(trimmed, @"^([A-Z]\d{2}(?:\.\d[\d\-]*)?[GVAZ]?(?:\s*[RLB])?)\s+(.+)$", RegexOptions.IgnoreCase);
-                if (m.Success)
-                {
-                    string code = m.Groups[1].Value.Trim();
-                    string diagText = m.Groups[2].Value.Trim();
-                    icdMap[diagText] = code;
-                }
-            }
-
-            var result = new List<string>();
-            foreach (string line in diagLines)
-            {
-                string trimmed = line.Trim();
-                if (string.IsNullOrEmpty(trimmed)) continue;
-
-                string bestCode = "";
-                int bestLen = 0;
-                foreach (var kv in icdMap)
-                {
-                    if (trimmed.Contains(kv.Key, StringComparison.OrdinalIgnoreCase) ||
-                        kv.Key.Contains(trimmed, StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (kv.Key.Length > bestLen)
-                        {
-                            bestLen = kv.Key.Length;
-                            bestCode = kv.Value;
-                        }
-                    }
-                }
-
-                if (string.IsNullOrEmpty(bestCode) && icdMap.Count > 0)
-                {
-                    // Positional fallback: match by line index
-                    int idx = Array.IndexOf(diagLines, line);
-                    if (idx >= 0 && idx < icdLines.Length)
-                    {
-                        var m = Regex.Match(icdLines[idx].Trim(), @"^([A-Z]\d{2}(?:\.\d[\d\-]*)?[GVAZ]?(?:\s*[RLB])?)\s+", RegexOptions.IgnoreCase);
-                        if (m.Success)
-                            bestCode = m.Groups[1].Value.Trim();
-                    }
-                }
-
-                result.Add(string.IsNullOrEmpty(bestCode) ? trimmed : $"{trimmed} ({bestCode})");
-            }
-
-            return string.Join(Environment.NewLine, result);
         }
 
         private static string StripAnamneseHeaders(string text)

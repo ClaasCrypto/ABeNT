@@ -101,11 +101,8 @@
                         <TextBlock Text="Be (Befund):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
                         <TextBox x:Name="TxtPromptBe" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
 
-                        <TextBlock Text="N (Diagnose):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
-                        <TextBox x:Name="TxtPromptN" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
-
-                        <TextBlock Text="ICD-10 (Codierung):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
-                        <TextBox x:Name="TxtPromptIcd10" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+                        <TextBlock Text="N (Diagnosen inkl. ICD-10):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                        <TextBox x:Name="TxtPromptN" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12" MinHeight="80" TextWrapping="Wrap" AcceptsReturn="True"/>
                     </StackPanel>
                 </ScrollViewer>
 

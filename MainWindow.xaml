@@ -154,7 +154,7 @@
                     Padding="20,24">
                 <StackPanel VerticalAlignment="Center">
                     <Button x:Name="BtnOpenRecorder" 
-                            Content="● Rekorder öffnen" 
+                            Content="● Neue Unterhaltung starten" 
                             Style="{StaticResource RecordButtonStyle}"
                             HorizontalAlignment="Stretch"
                             Click="BtnOpenRecorder_Click"/>

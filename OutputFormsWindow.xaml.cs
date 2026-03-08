@@ -14,6 +14,7 @@ namespace ABeNT
     {
         private List<SubjectForm> _forms = new List<SubjectForm>();
         private string? _editingFormId; // null = new form, not yet saved
+        private string _loadedIcd10 = ""; // preserved for backward compat, not used when building prompt
         private readonly LlmService _llmService = new LlmService();
 
         public OutputFormsWindow()
@@ -64,7 +65,7 @@ namespace ABeNT
             TxtPromptA.Text = form.SectionPrompts?.A ?? string.Empty;
             TxtPromptBe.Text = form.SectionPrompts?.Be ?? string.Empty;
             TxtPromptN.Text = form.SectionPrompts?.N ?? string.Empty;
-            TxtPromptIcd10.Text = form.SectionPrompts?.Icd10 ?? string.Empty;
+            _loadedIcd10 = form.SectionPrompts?.Icd10 ?? string.Empty;
             BtnRestoreDefault.Visibility = OutputFormsService.IsStandardForm(form.Id) ? Visibility.Visible : Visibility.Collapsed;
         }
 
@@ -163,7 +164,7 @@ namespace ABeNT
                     TxtPromptA.Text = form.SectionPrompts?.A ?? string.Empty;
                     TxtPromptBe.Text = form.SectionPrompts?.Be ?? string.Empty;
                     TxtPromptN.Text = form.SectionPrompts?.N ?? string.Empty;
-                    TxtPromptIcd10.Text = form.SectionPrompts?.Icd10 ?? string.Empty;
+                    _loadedIcd10 = form.SectionPrompts?.Icd10 ?? string.Empty;
                 }
                 RefreshFormList();
                 MessageBox.Show("Standard wiederhergestellt.", "Erfolg", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -199,7 +200,7 @@ namespace ABeNT
                 Be = TxtPromptBe.Text ?? string.Empty,
                 N = TxtPromptN.Text ?? string.Empty,
                 T = string.Empty,
-                Icd10 = TxtPromptIcd10.Text ?? string.Empty
+                Icd10 = _loadedIcd10
             };
             var form = new SubjectForm
             {
@@ -310,7 +311,7 @@ namespace ABeNT
                 TxtPromptA.Text = dlg.GeneratedA;
                 TxtPromptBe.Text = dlg.GeneratedBe;
                 TxtPromptN.Text = dlg.GeneratedN;
-                TxtPromptIcd10.Text = dlg.GeneratedIcd10;
+                _loadedIcd10 = string.Empty;
             }
         }
 
