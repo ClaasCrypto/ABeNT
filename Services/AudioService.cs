@@ -17,8 +17,14 @@ namespace ABeNT.Services
         private DateTime _recordingStartTime;
         private long _bytesRecorded = 0;
         
-        // Gain-Faktor für Audio-Verstärkung (1.0 = keine Verstärkung)
-        private const float AudioGain = 1.0f;
+        // AGC (Automatic Gain Control) – normalisiert Lautstärke unabhängig vom Mikrofon
+        private float _currentGain = 1.0f;
+        private const float AgcTargetRms = 0.08f;
+        private const float AgcMaxGain = 15.0f;
+        private const float AgcMinGain = 0.1f;
+        private const float AgcAttackCoeff = 0.05f;
+        private const float AgcReleaseCoeff = 0.002f;
+        private const float AgcNoiseGate = 0.002f;
 
         // Erzwungenes Format: 16kHz, 16-bit, Mono (Industriestandard für STT)
         private static readonly WaveFormat RecordingFormat = new WaveFormat(16000, 16, 1);
@@ -133,8 +139,7 @@ namespace ABeNT.Services
             // NUR WENN aufgenommen wird: Schreibe in Datei mit Verstärkung
             if (_isRecording && _writer != null)
             {
-                // Verstärke die Audio-Daten vor dem Schreiben
-                byte[] amplifiedBuffer = AmplifyAudio(e.Buffer, e.BytesRecorded);
+                byte[] amplifiedBuffer = ApplyAgc(e.Buffer, e.BytesRecorded);
                 _writer.Write(amplifiedBuffer, 0, amplifiedBuffer.Length);
                 _bytesRecorded += e.BytesRecorded;
 
@@ -174,8 +179,9 @@ namespace ABeNT.Services
                 string fileName = $"Aufnahme_{DateTime.Now:yyyyMMdd_HHmmss}.wav";
                 _outputFilePath = Path.Combine(tempDir, fileName);
 
-                // Reset Zähler
+                // Reset Zähler und AGC
                 _bytesRecorded = 0;
+                _currentGain = 1.0f;
                 _recordingStartTime = DateTime.Now;
 
                 // Erstelle WaveFileWriter mit dem tatsächlichen Format des Mikrofons
@@ -289,31 +295,42 @@ namespace ABeNT.Services
             }
         }
 
-        private byte[] AmplifyAudio(byte[] buffer, int bytesRecorded)
+        private float CalculateRms(byte[] buffer, int bytesRecorded)
         {
-            // Erstelle neuen Buffer für verstärkte Daten
-            byte[] amplified = new byte[bytesRecorded];
-            
-            // Verstärke 16-Bit Samples
+            double sumOfSquares = 0;
+            int sampleCount = bytesRecorded / 2;
             for (int i = 0; i < bytesRecorded; i += 2)
             {
-                // Konvertiere zu 16-Bit Sample
                 short sample = BitConverter.ToInt16(buffer, i);
-                
-                // Wende Gain an
-                float amplifiedSample = sample * AudioGain;
-                
-                // Begrenze auf 16-Bit Bereich (-32768 bis 32767)
-                amplifiedSample = Math.Max(-32768f, Math.Min(32767f, amplifiedSample));
-                
-                // Konvertiere zurück zu Bytes
-                short finalSample = (short)amplifiedSample;
-                byte[] sampleBytes = BitConverter.GetBytes(finalSample);
-                amplified[i] = sampleBytes[0];
-                amplified[i + 1] = sampleBytes[1];
+                float normalized = sample / 32768f;
+                sumOfSquares += normalized * normalized;
             }
-            
-            return amplified;
+            return (float)Math.Sqrt(sumOfSquares / Math.Max(1, sampleCount));
+        }
+
+        private byte[] ApplyAgc(byte[] buffer, int bytesRecorded)
+        {
+            float rms = CalculateRms(buffer, bytesRecorded);
+
+            if (rms > AgcNoiseGate)
+            {
+                float desiredGain = AgcTargetRms / rms;
+                desiredGain = Math.Clamp(desiredGain, AgcMinGain, AgcMaxGain);
+
+                float coeff = desiredGain < _currentGain ? AgcAttackCoeff : AgcReleaseCoeff;
+                _currentGain += coeff * (desiredGain - _currentGain);
+            }
+
+            byte[] result = new byte[bytesRecorded];
+            for (int i = 0; i < bytesRecorded; i += 2)
+            {
+                short sample = BitConverter.ToInt16(buffer, i);
+                float amplified = sample * _currentGain;
+                amplified = Math.Clamp(amplified, -32768f, 32767f);
+                BitConverter.GetBytes((short)amplified).CopyTo(result, i);
+            }
+
+            return result;
         }
 
         public void Dispose()

@@ -40,6 +40,7 @@ namespace ABeNT
             LoadSubjectForms();
             LoadDocumentations();
             UpdateKeyStatus();
+            UpdateTokenEstimate();
         }
 
         private void ChkReportSection_Changed(object sender, RoutedEventArgs e)
@@ -48,6 +49,48 @@ namespace ABeNT
             settings.IncludeBefund = ChkBefund.IsChecked ?? false;
             settings.SuggestIcd10 = ChkIcd10.IsChecked ?? false;
             SettingsService.SaveSettings(settings);
+            UpdateTokenEstimate();
+        }
+
+        private void UpdateTokenEstimate()
+        {
+            if (TxtTokenEstimate == null) return;
+            try
+            {
+                var formId = (CmbSubjectForm.SelectedItem as Model.SubjectForm)?.Id;
+                bool includeBefund = ChkBefund.IsChecked ?? false;
+                bool includeIcd10 = ChkIcd10.IsChecked ?? false;
+
+                string fullPrompt = OutputFormsService.BuildSystemPromptFromConfig(
+                    formId, "Neutral", true, false, true, "Neupatient");
+                int fullTotal = RoundToNearest(fullPrompt.Length / 4 + EstimateOutputTokens(true, true), 50);
+
+                string currentPrompt = OutputFormsService.BuildSystemPromptFromConfig(
+                    formId, "Neutral", includeBefund, false, includeIcd10, "Neupatient");
+                int currentTotal = RoundToNearest(currentPrompt.Length / 4 + EstimateOutputTokens(includeBefund, includeIcd10), 50);
+
+                int saved = fullTotal - currentTotal;
+                TxtTokenEstimate.Text = saved > 0
+                    ? $"⚡ ≈ {currentTotal:N0} Tokens  (↓{saved:N0} gespart)"
+                    : $"⚡ ≈ {currentTotal:N0} Tokens";
+            }
+            catch
+            {
+                TxtTokenEstimate.Text = string.Empty;
+            }
+        }
+
+        private static int EstimateOutputTokens(bool includeBefund, bool includeIcd10)
+        {
+            int tokens = 300; // Anamnese
+            if (includeBefund) tokens += 250;
+            tokens += includeIcd10 ? 200 : 100;
+            return tokens;
+        }
+
+        private static int RoundToNearest(int value, int nearest)
+        {
+            return (int)(Math.Round((double)value / nearest) * nearest);
         }
 
         private void UpdateKeyStatus()
@@ -103,6 +146,7 @@ namespace ABeNT
                 settings.LastSelectedFormId = form.Id ?? string.Empty;
                 SettingsService.SaveSettings(settings);
             }
+            UpdateTokenEstimate();
         }
 
         private void BtnOpenRecorder_Click(object sender, RoutedEventArgs e)

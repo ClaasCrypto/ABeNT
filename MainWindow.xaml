@@ -129,7 +129,10 @@
                     
                     <TextBlock Text="Bericht erstellen mit:" 
                                Style="{StaticResource FieldLabel}"
-                               Margin="0,14,0,5"/>
+                               Margin="0,14,0,2"/>
+                    <TextBlock Text="Abwahl spart Tokens und beschleunigt die Erstellung"
+                               FontSize="11" Foreground="{StaticResource TextSecondary}"
+                               Margin="0,0,0,5"/>
                     <CheckBox x:Name="ChkAnamnese" 
                               Content="Anamnese" 
                               Style="{StaticResource CheckBoxStyle}"
@@ -142,6 +145,9 @@
                               Content="Diagnosen nach ICD-10" 
                               Style="{StaticResource CheckBoxStyle}"
                               Checked="ChkReportSection_Changed" Unchecked="ChkReportSection_Changed"/>
+                    <TextBlock x:Name="TxtTokenEstimate"
+                               FontSize="11" Foreground="{StaticResource TextSecondary}"
+                               Margin="0,8,0,0"/>
                     
                 </StackPanel>
             </Border>

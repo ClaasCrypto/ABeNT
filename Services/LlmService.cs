@@ -109,9 +109,9 @@ namespace ABeNT.Services
             {
                 contents = new[] { new { parts = new[] { new { text = userMessage } } } },
                 systemInstruction = new { parts = new[] { new { text = systemPrompt } } },
-                generationConfig = new { maxOutputTokens = 4096 }
+                generationConfig = new { maxOutputTokens = 8192 }
             };
-            string url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={Uri.EscapeDataString(apiKey.Trim())}";
+            string url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={Uri.EscapeDataString(apiKey.Trim())}";
             var request = new HttpRequestMessage(HttpMethod.Post, url)
             {
                 Content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json")
