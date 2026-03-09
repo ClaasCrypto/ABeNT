@@ -19,12 +19,12 @@ namespace ABeNT.Services
         
         // AGC (Automatic Gain Control) – normalisiert Lautstärke unabhängig vom Mikrofon
         private float _currentGain = 1.0f;
-        private const float AgcTargetRms = 0.08f;
-        private const float AgcMaxGain = 15.0f;
+        private const float AgcTargetRms = 0.1f;
+        private const float AgcMaxGain = 50.0f;
         private const float AgcMinGain = 0.1f;
         private const float AgcAttackCoeff = 0.05f;
-        private const float AgcReleaseCoeff = 0.002f;
-        private const float AgcNoiseGate = 0.002f;
+        private const float AgcReleaseCoeff = 0.005f;
+        private const float AgcNoiseGate = 0.001f;
 
         // Erzwungenes Format: 16kHz, 16-bit, Mono (Industriestandard für STT)
         private static readonly WaveFormat RecordingFormat = new WaveFormat(16000, 16, 1);
