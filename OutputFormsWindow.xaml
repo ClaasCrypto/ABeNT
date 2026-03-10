@@ -26,7 +26,7 @@
         
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="230" MinWidth="180"/>
+                <ColumnDefinition Width="280" MinWidth="240"/>
                 <ColumnDefinition Width="*" MinWidth="400"/>
             </Grid.ColumnDefinitions>
             
@@ -53,7 +53,7 @@
                              Margin="0,0,0,12"/>
                     
                     <StackPanel Grid.Row="2" Orientation="Horizontal">
-                        <Button x:Name="BtnAdd" Content="Hinzufügen"
+                        <Button x:Name="BtnAdd" Content="Fachgebiet hinzufügen"
                                 Style="{StaticResource FilledAccentButtonStyle}"
                                 Padding="14,6" FontSize="12"
                                 Margin="0,0,8,0"
@@ -81,10 +81,7 @@
                             <Rectangle Width="16" Height="3" Fill="{StaticResource AccentCoral}" Margin="10,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
 
-                        <TextBlock Text="Id (eindeutig, z. B. orthopaedie):" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
-                        <TextBox x:Name="TxtId" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12"/>
-
-                        <TextBlock Text="Anzeigename:" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Name:" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
                         <TextBox x:Name="TxtDisplayName" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12"/>
 
                         <TextBlock Text="Beschreibung (optional):" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4"/>
@@ -92,17 +89,32 @@
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Ellipse Width="6" Height="6" Fill="{StaticResource AccentYellow}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="Prompts pro ABeNT-Abschnitt (leer = Standard verwenden)" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                            <TextBlock Text="Prompts pro ABeNT-Abschnitt" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
                         </StackPanel>
 
-                        <TextBlock Text="A (Anamnese):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,3">
+                            <TextBlock Text="A (Anamnese):" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                            <TextBlock x:Name="TxtStatusA" FontSize="10" Margin="6,1,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
                         <TextBox x:Name="TxtPromptA" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
 
-                        <TextBlock Text="Be (Befund):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,3">
+                            <TextBlock Text="Be (Befund):" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                            <TextBlock x:Name="TxtStatusBe" FontSize="10" Margin="6,1,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
                         <TextBox x:Name="TxtPromptBe" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
 
-                        <TextBlock Text="N (Diagnosen inkl. ICD-10):" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,3"/>
-                        <TextBox x:Name="TxtPromptN" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12" MinHeight="80" TextWrapping="Wrap" AcceptsReturn="True"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,3">
+                            <TextBlock Text="T (Therapie):" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                            <TextBlock x:Name="TxtStatusT" FontSize="10" Margin="6,1,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBox x:Name="TxtPromptT" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,8" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,3">
+                            <TextBlock Text="N (Diagnosen inkl. ICD-10):" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                            <TextBlock x:Name="TxtStatusN" FontSize="10" Margin="6,1,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBox x:Name="TxtPromptN" Style="{StaticResource BauhausTextBoxStyle}" Margin="0,0,0,12" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True"/>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -113,7 +125,7 @@
                         BorderThickness="0,1,0,0"
                         Visibility="{Binding ElementName=PanelFormDetail, Path=Visibility}">
                     <StackPanel Orientation="Horizontal">
-                        <Button x:Name="BtnSaveForm" Content="Formular speichern"
+                        <Button x:Name="BtnSaveForm" Content="Änderungen speichern"
                                 Style="{StaticResource FilledAccentButtonStyle}"
                                 Padding="16,8" FontSize="13"
                                 Margin="0,0,10,0"
@@ -123,11 +135,6 @@
                                 Padding="16,8" FontSize="13"
                                 Margin="0,0,10,0"
                                 Click="BtnSaveAndTest_Click"/>
-                        <Button x:Name="BtnGeneratePrompts" Content="Prompts generieren"
-                                Style="{StaticResource AccentButtonStyle}"
-                                Padding="16,8" FontSize="13"
-                                Margin="0,0,10,0"
-                                Click="BtnGeneratePrompts_Click"/>
                         <Button x:Name="BtnRestoreDefault" Content="Standard wiederherstellen"
                                 Style="{StaticResource SubtleButtonStyle}"
                                 Padding="16,8" FontSize="13"

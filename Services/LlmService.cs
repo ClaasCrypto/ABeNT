@@ -33,8 +33,8 @@ namespace ABeNT.Services
                 throw new ArgumentException("Transkript ist leer.");
 
             string systemPrompt = !string.IsNullOrWhiteSpace(options.FormId)
-                ? OutputFormsService.BuildSystemPromptFromConfig(options.FormId, options.Gender, options.IncludeBefund, options.IncludeTherapie, options.IncludeIcd10, options.RecordingMode)
-                : BuildSystemPrompt(options.Gender, options.IncludeBefund, options.IncludeTherapie, options.IncludeIcd10, options.RecordingMode);
+                ? OutputFormsService.BuildSystemPromptFromConfig(options.FormId, options.Gender, options.IncludeBefund, options.IncludeDiagnosen, options.IncludeTherapie, options.IncludeIcd10, options.RecordingMode)
+                : BuildSystemPrompt(options.Gender, options.IncludeBefund, options.IncludeDiagnosen, options.IncludeTherapie, options.IncludeIcd10, options.RecordingMode);
             string userMessage = $"Transkript:\n\n{rawTranscript}";
 
             return options.SelectedLlm switch
@@ -208,9 +208,9 @@ namespace ABeNT.Services
             };
         }
 
-        private static string BuildSystemPrompt(string gender, bool includeBefund, bool includeTherapie, bool includeIcd10, string recordingMode = "Neupatient")
+        private static string BuildSystemPrompt(string gender, bool includeBefund, bool includeDiagnosen, bool includeTherapie, bool includeIcd10, string recordingMode = "Neupatient")
         {
-            return OutputFormsService.BuildSystemPromptFromConfig(null, gender, includeBefund, includeTherapie, includeIcd10, recordingMode);
+            return OutputFormsService.BuildSystemPromptFromConfig(null, gender, includeBefund, includeDiagnosen, includeTherapie, includeIcd10, recordingMode);
         }
 
         private string ParseClaudeResponse(string json)

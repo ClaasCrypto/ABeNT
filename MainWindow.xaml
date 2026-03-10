@@ -20,6 +20,11 @@
             <Setter Property="Margin" Value="0,3"/>
             <Setter Property="FontSize" Value="12"/>
         </Style>
+        <Style x:Key="DictateButtonStyle" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+        </Style>
         <Style x:Key="ComboBoxStyle" TargetType="ComboBox">
             <Setter Property="Padding" Value="10,8"/>
             <Setter Property="Margin" Value="0,5"/>
@@ -122,17 +127,9 @@
                               Style="{StaticResource ComboBoxStyle}"
                               DisplayMemberPath="DisplayName"
                               HorizontalAlignment="Stretch"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" Cursor="Hand" MouseDown="BtnManageForms_Click">
-                        <TextBlock Text="&#x2699;" FontSize="14" Foreground="{StaticResource Accent}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <TextBlock Text="Berichtsformulare verwalten" TextDecorations="Underline" FontSize="12" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
-                    </StackPanel>
-                    
                     <TextBlock Text="Bericht erstellen mit:" 
                                Style="{StaticResource FieldLabel}"
                                Margin="0,14,0,2"/>
-                    <TextBlock Text="Abwahl spart Tokens und beschleunigt die Erstellung"
-                               FontSize="11" Foreground="{StaticResource TextSecondary}"
-                               Margin="0,0,0,5"/>
                     <CheckBox x:Name="ChkAnamnese" 
                               Content="Anamnese" 
                               Style="{StaticResource CheckBoxStyle}"
@@ -141,13 +138,24 @@
                               Content="Befund" 
                               Style="{StaticResource CheckBoxStyle}"
                               Checked="ChkReportSection_Changed" Unchecked="ChkReportSection_Changed"/>
-                    <CheckBox x:Name="ChkIcd10" 
-                              Content="Diagnosen nach ICD-10" 
+                    <CheckBox x:Name="ChkTherapie" 
+                              Content="Therapie" 
                               Style="{StaticResource CheckBoxStyle}"
                               Checked="ChkReportSection_Changed" Unchecked="ChkReportSection_Changed"/>
+                    <CheckBox x:Name="ChkDiagnosen" 
+                              Content="Diagnosen" 
+                              Style="{StaticResource CheckBoxStyle}"
+                              Checked="ChkReportSection_Changed" Unchecked="ChkReportSection_Changed"/>
+                    <CheckBox x:Name="ChkIcd10" 
+                              Content="  inkl. ICD-10-Codierung" 
+                              Style="{StaticResource CheckBoxStyle}"
+                              Checked="ChkReportSection_Changed" Unchecked="ChkReportSection_Changed"/>
+                    <TextBlock Text="Abwahl spart Tokens und beschleunigt die Erstellung"
+                               FontSize="11" Foreground="{StaticResource TextSecondary}"
+                               Margin="0,6,0,0"/>
                     <TextBlock x:Name="TxtTokenEstimate"
                                FontSize="11" Foreground="{StaticResource TextSecondary}"
-                               Margin="0,8,0,0"/>
+                               Margin="0,2,0,0"/>
                     
                 </StackPanel>
             </Border>
@@ -170,6 +178,12 @@
                             HorizontalAlignment="Stretch"
                             Margin="0,10,0,0"
                             Click="BtnSettings_Click"/>
+                    <Button x:Name="BtnManageFormsBtn" 
+                            Content="Berichtsformulare verwalten" 
+                            Style="{StaticResource ControlButtonStyle}"
+                            HorizontalAlignment="Stretch"
+                            Margin="0,10,0,0"
+                            Click="BtnManageForms_Click"/>
                     <TextBlock x:Name="TxtKeyStatus" 
                                FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,12,0,0"
                                TextAlignment="Center"/>
@@ -222,13 +236,10 @@
                                 <Border Style="{StaticResource CardHeaderStyle}">
                                     <Grid>
                                         <TextBlock Text="Anamnese" Style="{StaticResource CardTitle}"/>
-                                        <Button x:Name="BtnCopyA" 
-                                                Content="Kopieren" 
-                                                Style="{StaticResource AccentButtonStyle}"
-                                                HorizontalAlignment="Right"
-                                                Padding="12,5"
-                                                FontSize="12"
-                                                Click="BtnCopyA_Click"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button x:Name="BtnDictateA" Content="🎤 Diktieren" Style="{StaticResource DictateButtonStyle}" Click="BtnDictateA_Click"/>
+                                            <Button x:Name="BtnCopyA" Content="Kopieren" Style="{StaticResource AccentButtonStyle}" Padding="12,5" FontSize="12" Margin="8,0,0,0" Click="BtnCopyA_Click"/>
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                                 <TextBox x:Name="TxtAnamnese" Style="{StaticResource ResultTextBoxStyle}" Text=""/>
@@ -241,16 +252,29 @@
                                 <Border Style="{StaticResource CardHeaderStyle}">
                                     <Grid>
                                         <TextBlock Text="Befund" Style="{StaticResource CardTitle}"/>
-                                        <Button x:Name="BtnCopyBe" 
-                                                Content="Kopieren" 
-                                                Style="{StaticResource AccentButtonStyle}"
-                                                HorizontalAlignment="Right"
-                                                Padding="12,5"
-                                                FontSize="12"
-                                                Click="BtnCopyBe_Click"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button x:Name="BtnDictateBe" Content="🎤 Diktieren" Style="{StaticResource DictateButtonStyle}" Click="BtnDictateBe_Click"/>
+                                            <Button x:Name="BtnCopyBe" Content="Kopieren" Style="{StaticResource AccentButtonStyle}" Padding="12,5" FontSize="12" Margin="8,0,0,0" Click="BtnCopyBe_Click"/>
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                                 <TextBox x:Name="TxtBefund" Style="{StaticResource ResultTextBoxStyle}" Text=""/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Karte: Therapie -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Border Style="{StaticResource CardHeaderStyle}">
+                                    <Grid>
+                                        <TextBlock Text="Therapie" Style="{StaticResource CardTitle}"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button x:Name="BtnDictateT" Content="🎤 Diktieren" Style="{StaticResource DictateButtonStyle}" Click="BtnDictateT_Click"/>
+                                            <Button x:Name="BtnCopyT" Content="Kopieren" Style="{StaticResource AccentButtonStyle}" Padding="12,5" FontSize="12" Margin="8,0,0,0" Click="BtnCopyT_Click"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                                <TextBox x:Name="TxtTherapie" Style="{StaticResource ResultTextBoxStyle}" Text=""/>
                             </StackPanel>
                         </Border>
                         
@@ -260,13 +284,10 @@
                                 <Border Style="{StaticResource CardHeaderStyle}">
                                     <Grid>
                                         <TextBlock Text="Diagnosen / ICD-10" Style="{StaticResource CardTitle}"/>
-                                        <Button x:Name="BtnCopyN" 
-                                                Content="Kopieren" 
-                                                Style="{StaticResource AccentButtonStyle}"
-                                                HorizontalAlignment="Right"
-                                                Padding="12,5"
-                                                FontSize="12"
-                                                Click="BtnCopyN_Click"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button x:Name="BtnDictateN" Content="🎤 Diktieren" Style="{StaticResource DictateButtonStyle}" Click="BtnDictateN_Click"/>
+                                            <Button x:Name="BtnCopyN" Content="Kopieren" Style="{StaticResource AccentButtonStyle}" Padding="12,5" FontSize="12" Margin="8,0,0,0" Click="BtnCopyN_Click"/>
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                                 <TextBox x:Name="TxtDiagnose" Style="{StaticResource ResultTextBoxStyle}" Text=""/>

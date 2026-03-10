@@ -19,6 +19,7 @@ namespace ABeNT.Model
         public string MistralApiKey { get; set; } = string.Empty;
         public string Gender { get; set; } = "Neutral";
         public bool IncludeBefund { get; set; } = true;
+        public bool IncludeDiagnosen { get; set; } = true;
         public bool IncludeTherapie { get; set; } = true;
         public bool IncludeIcd10 { get; set; }
         public string? FormId { get; set; }

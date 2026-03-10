@@ -3,21 +3,26 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using NAudio.CoreAudioApi;
 using NAudio.Wave;
 
 namespace ABeNT.Services
 {
-    public class AudioService
+    public class AudioService : IDisposable
     {
-        private WaveInEvent? _waveIn;
+        private WasapiCapture? _capture;
         private WaveFileWriter? _writer;
         private string? _outputFilePath;
         private bool _isRecording;
-        private int _selectedDeviceIndex = 0; // Standard: Erstes Mikrofon
+        private int _selectedDeviceIndex = 0;
         private DateTime _recordingStartTime;
         private long _bytesRecorded = 0;
-        
-        // AGC (Automatic Gain Control) – normalisiert Lautstärke unabhängig vom Mikrofon
+        private bool _isFloat;
+        private int _bytesPerSample;
+
+        private List<MMDevice> _mmDevices = new List<MMDevice>();
+
+        // AGC (Automatic Gain Control)
         private float _currentGain = 1.0f;
         private const float AgcTargetRms = 0.1f;
         private const float AgcMaxGain = 50.0f;
@@ -26,26 +31,32 @@ namespace ABeNT.Services
         private const float AgcReleaseCoeff = 0.005f;
         private const float AgcNoiseGate = 0.001f;
 
-        // Erzwungenes Format: 16kHz, 16-bit, Mono (Industriestandard für STT)
-        private static readonly WaveFormat RecordingFormat = new WaveFormat(16000, 16, 1);
-
         public event Action<float>? OnAudioLevelChanged;
 
-        public bool IsMonitoring => _waveIn != null;
+        public bool IsMonitoring => _capture != null;
         public bool IsRecording => _isRecording;
 
         public List<string> GetInputDevices()
         {
-            var devices = new List<string>();
-            int deviceCount = WaveInEvent.DeviceCount;
-            
-            for (int i = 0; i < deviceCount; i++)
+            _mmDevices.Clear();
+            var names = new List<string>();
+            try
             {
-                var capabilities = WaveInEvent.GetCapabilities(i);
-                devices.Add(capabilities.ProductName);
+                using var enumerator = new MMDeviceEnumerator();
+                var endpoints = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
+                foreach (var device in endpoints)
+                {
+                    _mmDevices.Add(device);
+                    names.Add(device.FriendlyName);
+                }
             }
-            
-            return devices;
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"WASAPI enumerate: {ex.Message}");
+            }
+
+
+            return names;
         }
 
         public int SelectedDeviceIndex
@@ -71,137 +82,100 @@ namespace ABeNT.Services
 
         public void StartMonitoring()
         {
-            if (IsMonitoring)
-            {
-                return; // Bereits aktiv
-            }
+            if (IsMonitoring) return;
 
-            // Initialisiere WaveInEvent OHNE erzwungenes Format
-            // NAudio verwendet dann die native Sample-Rate des Mikrofons
-            _waveIn = new WaveInEvent
-            {
-                DeviceNumber = _selectedDeviceIndex
-                // WaveFormat wird automatisch vom Gerät übernommen
-            };
+            if (_selectedDeviceIndex < 0 || _selectedDeviceIndex >= _mmDevices.Count)
+                throw new InvalidOperationException("Kein gültiges Mikrofon ausgewählt.");
 
-            // Abonniere DataAvailable Event
-            _waveIn.DataAvailable += WaveIn_DataAvailable;
+            var device = _mmDevices[_selectedDeviceIndex];
+            _capture = new WasapiCapture(device);
+            _capture.DataAvailable += Capture_DataAvailable;
 
-            // Starte Monitoring
-            _waveIn.StartRecording();
+            var fmt = _capture.WaveFormat;
+            _isFloat = fmt.Encoding == WaveFormatEncoding.IeeeFloat;
+            _bytesPerSample = fmt.BitsPerSample / 8;
+
+            _capture.StartRecording();
         }
 
         public void StopMonitoring()
         {
-            if (!IsMonitoring)
-            {
-                return;
-            }
-
-            // Stoppe nur, wenn nicht gerade aufgenommen wird
+            if (!IsMonitoring) return;
             if (!_isRecording)
             {
-                _waveIn?.StopRecording();
-                _waveIn?.Dispose();
-                _waveIn = null;
+                _capture?.StopRecording();
+                _capture?.Dispose();
+                _capture = null;
             }
         }
 
-        private void WaveIn_DataAvailable(object? sender, WaveInEventArgs e)
+        private void Capture_DataAvailable(object? sender, WaveInEventArgs e)
         {
-            // IMMER: Berechne Pegel und feuere Event (für Visualisierung)
+            int step = _bytesPerSample * (_capture?.WaveFormat.Channels ?? 1);
+            if (step == 0) return;
+
             float maxSample = 0f;
-            for (int i = 0; i < e.BytesRecorded; i += 2)
+            for (int i = 0; i + _bytesPerSample <= e.BytesRecorded; i += step)
             {
-                // Konvertiere 16-Bit Sample zu float (-1.0 bis 1.0)
-                short sample = BitConverter.ToInt16(e.Buffer, i);
-                float normalizedSample = sample / 32768f;
-                float absSample = Math.Abs(normalizedSample);
-                
-                if (absSample > maxSample)
-                {
-                    maxSample = absSample;
-                }
+                float sample = ReadSample(e.Buffer, i);
+                float absSample = Math.Abs(sample);
+                if (absSample > maxSample) maxSample = absSample;
             }
 
-            // Normalisiere auf 0-100 (RMS-ähnlich, aber mit Peak)
-            float level = maxSample * 100f;
-            
-            // Verstärke für bessere Sichtbarkeit im UI (Faktor 10)
-            float amplifiedLevel = level * 10f;
-            
-            // Begrenze auf Maximum 100
-            float finalLevel = Math.Min(100f, amplifiedLevel);
-
-            // Feuere Event (wird vom Audio-Thread aufgerufen)
+            float finalLevel = Math.Min(100f, maxSample * 1000f);
             OnAudioLevelChanged?.Invoke(finalLevel);
 
-            // NUR WENN aufgenommen wird: Schreibe in Datei mit Verstärkung
             if (_isRecording && _writer != null)
             {
-                byte[] amplifiedBuffer = ApplyAgc(e.Buffer, e.BytesRecorded);
-                _writer.Write(amplifiedBuffer, 0, amplifiedBuffer.Length);
-                _bytesRecorded += e.BytesRecorded;
+                byte[] processed = ApplyAgc(e.Buffer, e.BytesRecorded);
+                _writer.Write(processed, 0, processed.Length);
+                _bytesRecorded += processed.Length;
 
-                // Flush alle 5 Sekunden (ca. 16000 samples/sec * 2 bytes * 5 sec = 160000 bytes)
-                // Oder einfacher: alle ~80KB (ca. 5 Sekunden bei 16kHz)
-                if (_bytesRecorded % 160000 < e.BytesRecorded)
+                if (_bytesRecorded % 160000 < processed.Length)
                 {
                     _writer.Flush();
                 }
             }
         }
 
+        private float ReadSample(byte[] buffer, int offset)
+        {
+            if (_isFloat)
+                return BitConverter.ToSingle(buffer, offset);
+            return BitConverter.ToInt16(buffer, offset) / 32768f;
+        }
+
         public void BeginRecordingToFile()
         {
             if (_isRecording)
-            {
                 throw new InvalidOperationException("Aufnahme läuft bereits.");
-            }
-
-            if (!IsMonitoring)
-            {
+            if (!IsMonitoring || _capture == null)
                 throw new InvalidOperationException("Monitoring muss zuerst gestartet werden.");
-            }
-
-            if (_waveIn == null)
-            {
-                throw new InvalidOperationException("WaveInEvent ist null - Monitoring wurde nicht korrekt gestartet.");
-            }
 
             try
             {
-                // Erstelle temporäre WAV-Datei mit eindeutigem Namen
                 string tempDir = Path.Combine(Path.GetTempPath(), "ABeNT");
                 Directory.CreateDirectory(tempDir);
-                
-                // Dynamischer Dateiname mit Timestamp
                 string fileName = $"Aufnahme_{DateTime.Now:yyyyMMdd_HHmmss}.wav";
                 _outputFilePath = Path.Combine(tempDir, fileName);
 
-                // Reset Zähler und AGC
                 _bytesRecorded = 0;
                 _currentGain = 1.0f;
                 _recordingStartTime = DateTime.Now;
 
-                // Erstelle WaveFileWriter mit dem tatsächlichen Format des Mikrofons
-                // WICHTIG: Verwende das Format, das das Mikrofon tatsächlich liefert
-                var waveFormat = _waveIn.WaveFormat;
+                var waveFormat = _capture.WaveFormat;
                 _writer = new WaveFileWriter(_outputFilePath, waveFormat);
                 _isRecording = true;
-                
+
                 System.Diagnostics.Debug.WriteLine($"Aufnahme gestartet: {_outputFilePath}");
-                System.Diagnostics.Debug.WriteLine($"Format: {waveFormat.SampleRate}Hz, {waveFormat.BitsPerSample}-bit, {waveFormat.Channels} Channel(s)");
+                System.Diagnostics.Debug.WriteLine($"Format: {waveFormat.SampleRate}Hz, {waveFormat.BitsPerSample}-bit, {waveFormat.Channels} Channel(s), Encoding={waveFormat.Encoding}");
             }
             catch (Exception ex)
             {
-                // Cleanup bei Fehler
                 _writer?.Dispose();
                 _writer = null;
                 _outputFilePath = null;
                 _isRecording = false;
-                
-                System.Diagnostics.Debug.WriteLine($"Fehler beim Starten der Aufnahme: {ex.Message}");
                 throw new InvalidOperationException($"Fehler beim Starten der Aufnahme: {ex.Message}", ex);
             }
         }
@@ -218,16 +192,11 @@ namespace ABeNT.Services
 
                 string? filePath = _outputFilePath;
 
-                // Prüfe ob Writer existiert
                 if (_writer == null)
-                {
-                    throw new InvalidOperationException("WaveFileWriter ist null - Aufnahme wurde möglicherweise nicht korrekt gestartet.");
-                }
+                    throw new InvalidOperationException("WaveFileWriter ist null.");
 
-                // Setze Recording-Flag zurück
                 _isRecording = false;
 
-                // Sauberes Stoppen
                 try
                 {
                     _writer.Flush();
@@ -236,7 +205,6 @@ namespace ABeNT.Services
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"Fehler beim Schließen des Writers: {ex.Message}");
-                    // Weiter mit Dateiprüfung, auch wenn Writer-Fehler auftritt
                 }
                 finally
                 {
@@ -244,66 +212,42 @@ namespace ABeNT.Services
                 }
 
                 _bytesRecorded = 0;
-
-                // WICHTIG: Warte 500ms, damit das Dateisystem die Datei freigibt
                 await Task.Delay(500);
 
-                // Prüfe ob Dateipfad vorhanden ist
                 if (string.IsNullOrEmpty(filePath))
-                {
-                    throw new InvalidOperationException("Dateipfad ist leer - Aufnahme wurde möglicherweise nicht korrekt gestartet.");
-                }
-
-                // Prüfe ob Datei existiert
+                    throw new InvalidOperationException("Dateipfad ist leer.");
                 if (!File.Exists(filePath))
-                {
-                    throw new FileNotFoundException($"Audiodatei wurde nicht gefunden: {filePath}");
-                }
+                    throw new FileNotFoundException($"Audiodatei nicht gefunden: {filePath}");
 
-                // Prüfe Dateigröße
                 FileInfo fileInfo = new FileInfo(filePath);
-                if (fileInfo.Length < 1024) // Kleiner als 1KB
-                {
-                    throw new Exception($"Audiodatei ist zu klein/leer - Aufnahme fehlgeschlagen. Dateigröße: {fileInfo.Length} Bytes. Datei: {filePath}");
-                }
-                
-                // Debug: Zeige Format-Informationen
-                if (_waveIn != null)
-                {
-                    var format = _waveIn.WaveFormat;
-                    System.Diagnostics.Debug.WriteLine($"WAV-Format: {format.SampleRate}Hz, {format.BitsPerSample}-bit, {format.Channels} Channel(s)");
-                    System.Diagnostics.Debug.WriteLine($"Dateigröße: {fileInfo.Length} Bytes ({fileInfo.Length / 1024} KB)");
-                    System.Diagnostics.Debug.WriteLine($"Geschätzte Dauer: {fileInfo.Length / (format.SampleRate * format.BitsPerSample / 8 * format.Channels)} Sekunden");
-                }
+                if (fileInfo.Length < 1024)
+                    throw new Exception($"Audiodatei zu klein ({fileInfo.Length} Bytes): {filePath}");
 
-                // Setze _outputFilePath erst NACH erfolgreicher Prüfung zurück
                 _outputFilePath = null;
-
                 return filePath;
             }
             catch (Exception)
             {
-                // Stelle sicher, dass Flags zurückgesetzt werden, auch bei Fehler
                 _isRecording = false;
                 _writer?.Dispose();
                 _writer = null;
                 _outputFilePath = null;
                 _bytesRecorded = 0;
-                
-                // Re-throw für Behandlung in MainWindow
                 throw;
             }
         }
 
         private float CalculateRms(byte[] buffer, int bytesRecorded)
         {
+            int step = _bytesPerSample * (_capture?.WaveFormat.Channels ?? 1);
+            if (step == 0) return 0f;
             double sumOfSquares = 0;
-            int sampleCount = bytesRecorded / 2;
-            for (int i = 0; i < bytesRecorded; i += 2)
+            int sampleCount = 0;
+            for (int i = 0; i + _bytesPerSample <= bytesRecorded; i += step)
             {
-                short sample = BitConverter.ToInt16(buffer, i);
-                float normalized = sample / 32768f;
-                sumOfSquares += normalized * normalized;
+                float sample = ReadSample(buffer, i);
+                sumOfSquares += sample * sample;
+                sampleCount++;
             }
             return (float)Math.Sqrt(sumOfSquares / Math.Max(1, sampleCount));
         }
@@ -316,18 +260,28 @@ namespace ABeNT.Services
             {
                 float desiredGain = AgcTargetRms / rms;
                 desiredGain = Math.Clamp(desiredGain, AgcMinGain, AgcMaxGain);
-
                 float coeff = desiredGain < _currentGain ? AgcAttackCoeff : AgcReleaseCoeff;
                 _currentGain += coeff * (desiredGain - _currentGain);
             }
 
             byte[] result = new byte[bytesRecorded];
-            for (int i = 0; i < bytesRecorded; i += 2)
+            if (_isFloat)
             {
-                short sample = BitConverter.ToInt16(buffer, i);
-                float amplified = sample * _currentGain;
-                amplified = Math.Clamp(amplified, -32768f, 32767f);
-                BitConverter.GetBytes((short)amplified).CopyTo(result, i);
+                for (int i = 0; i + 4 <= bytesRecorded; i += 4)
+                {
+                    float sample = BitConverter.ToSingle(buffer, i);
+                    float amplified = Math.Clamp(sample * _currentGain, -1f, 1f);
+                    BitConverter.GetBytes(amplified).CopyTo(result, i);
+                }
+            }
+            else
+            {
+                for (int i = 0; i + 2 <= bytesRecorded; i += 2)
+                {
+                    short sample = BitConverter.ToInt16(buffer, i);
+                    float amplified = Math.Clamp(sample * _currentGain, -32768f, 32767f);
+                    BitConverter.GetBytes((short)amplified).CopyTo(result, i);
+                }
             }
 
             return result;
@@ -337,7 +291,6 @@ namespace ABeNT.Services
         {
             if (_isRecording)
             {
-                // Synchron beenden (für Dispose)
                 _isRecording = false;
                 _writer?.Flush();
                 _writer?.Dispose();

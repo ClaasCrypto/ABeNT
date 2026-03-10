@@ -1,0 +1,110 @@
+<Window x:Class="ABeNT.DictationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Diktat" Height="520" Width="720"
+        WindowStartupLocation="CenterOwner"
+        MinHeight="420" MinWidth="560"
+        Background="{StaticResource BackgroundPage}">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Titel + Mikrofon -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <Image Source="Assets/logo.png" Height="20" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtSectionTitle" Text="Diktat" FontSize="16" FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+                <Rectangle Width="16" Height="3" Fill="{StaticResource AccentCoral}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <TextBlock Grid.Column="1" Text="Mikrofon:" FontSize="12" Foreground="{StaticResource TextSecondary}"
+                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+        </Grid>
+
+        <ComboBox x:Name="CmbMicrophones" Grid.Row="1"
+                  Padding="10,8" Margin="0,0,0,14"
+                  MinHeight="32"
+                  SelectionChanged="CmbMicrophones_SelectionChanged"/>
+
+        <!-- Pegel -->
+        <Border Grid.Row="2" CornerRadius="6" Background="#F0EDE6" Height="18" Margin="0,0,0,14" ClipToBounds="True">
+            <ProgressBar x:Name="PbAudioLevel"
+                         Minimum="0" Maximum="100" Value="0"
+                         Height="18"
+                         Background="Transparent"
+                         Foreground="{StaticResource AccentBlue}"
+                         BorderThickness="0"/>
+        </Border>
+
+        <!-- Status -->
+        <TextBlock x:Name="TxtStatus" Grid.Row="3"
+                   Text="Bereit – Aufnahme starten."
+                   FontSize="13" Foreground="{StaticResource TextSecondary}"
+                   TextAlignment="Center" Margin="0,0,0,10"/>
+
+        <!-- Ergebnis -->
+        <Border Grid.Row="4" CornerRadius="6" BorderBrush="{StaticResource BorderLight}" BorderThickness="1"
+                Background="{StaticResource CardBackground}" Margin="0,0,0,14">
+            <TextBox x:Name="TxtResult"
+                     IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     BorderThickness="0"
+                     FontFamily="Open Sans, Segoe UI" FontSize="14"
+                     Padding="14,12"
+                     Background="Transparent"
+                     Foreground="{StaticResource TextPrimary}"/>
+        </Border>
+
+        <!-- Buttons -->
+        <Grid Grid.Row="5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Links: Aufnahme-Steuerung -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <Button x:Name="BtnRecord" Content="● Aufnahme starten"
+                        Style="{StaticResource RecordButtonStyle}"
+                        Padding="20,10" FontSize="13"
+                        Click="BtnRecord_Click"/>
+                <Button x:Name="BtnNewDictation" Content="Neu diktieren"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Padding="14,10" FontSize="13"
+                        Margin="10,0,0,0"
+                        Visibility="Collapsed"
+                        Click="BtnNewDictation_Click"/>
+            </StackPanel>
+
+            <!-- Rechts: Ergebnis-Aktionen -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="BtnReplace" Content="Übernehmen"
+                        Style="{StaticResource FilledAccentButtonStyle}"
+                        Padding="18,10" FontSize="13"
+                        Visibility="Collapsed"
+                        Click="BtnReplace_Click"/>
+                <Button x:Name="BtnAppend" Content="Anfügen"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Padding="18,10" FontSize="13"
+                        Margin="10,0,0,0"
+                        Visibility="Collapsed"
+                        Click="BtnAppend_Click"/>
+                <Button x:Name="BtnCancel" Content="Abbrechen"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Padding="18,10" FontSize="13"
+                        Margin="10,0,0,0"
+                        Click="BtnCancel_Click"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

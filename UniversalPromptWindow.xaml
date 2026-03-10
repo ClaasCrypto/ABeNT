@@ -13,10 +13,16 @@
         </Grid.RowDefinitions>
         
         <!-- Hinweis mit geometrischem Akzent -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-            <Rectangle Width="4" Height="14" Fill="{StaticResource AccentYellow}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-            <TextBlock Text="Dieser Text gilt für alle Berichtsformulare. Änderung nur mit doppelter Bestätigung."
-                       FontSize="12" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap"/>
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <Rectangle Width="4" Height="14" Fill="{StaticResource AccentYellow}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Dieser Text gilt für alle Berichtsformulare. Änderung nur mit doppelter Bestätigung."
+                           FontSize="12" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Status:" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="12,0,6,0"/>
+                <TextBlock x:Name="TxtUniversalStatus" FontSize="11" FontWeight="SemiBold"/>
+            </StackPanel>
         </StackPanel>
         
         <TextBox x:Name="TxtUniversalPrompt" Grid.Row="1"
@@ -25,6 +31,11 @@
                  VerticalScrollBarVisibility="Auto" Margin="0,0,0,18"/>
         
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="BtnRestoreDefault" Content="Standard wiederherstellen"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    Padding="16,8"
+                    Margin="0,0,10,0"
+                    Click="BtnRestoreDefault_Click"/>
             <Button x:Name="BtnSave" Content="Speichern"
                     Style="{StaticResource FilledAccentButtonStyle}"
                     Padding="20,8"

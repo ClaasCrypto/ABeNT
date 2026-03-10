@@ -23,6 +23,8 @@ namespace ABeNT.Services
         public bool IncludeBefund { get; set; } = true;
         /// <summary>Bericht erstellen: Therapie einbeziehen (wie bei letzter Aufzeichnung).</summary>
         public bool IncludeTherapie { get; set; } = true;
+        /// <summary>Bericht erstellen: Diagnosen einbeziehen (wie bei letzter Aufzeichnung).</summary>
+        public bool IncludeDiagnosen { get; set; } = true;
         /// <summary>Bericht erstellen: Diagnosen nach ICD-10 (wie bei letzter Aufzeichnung).</summary>
         public bool SuggestIcd10 { get; set; } = false;
         /// <summary>Zuletzt gewähltes Mikrofon (Anzeigename) – wird im Recorder wiederhergestellt.</summary>

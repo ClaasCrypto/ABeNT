@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -58,15 +57,49 @@ namespace ABeNT
             BtnRemove.IsEnabled = true;
             PanelFormDetail.Visibility = Visibility.Visible;
             _editingFormId = form.Id;
-            TxtId.Text = form.Id;
-            TxtId.IsReadOnly = true; // Id nicht ändern (Eindeutigkeit)
             TxtDisplayName.Text = form.DisplayName;
             TxtDescription.Text = form.Description ?? string.Empty;
             TxtPromptA.Text = form.SectionPrompts?.A ?? string.Empty;
             TxtPromptBe.Text = form.SectionPrompts?.Be ?? string.Empty;
             TxtPromptN.Text = form.SectionPrompts?.N ?? string.Empty;
+            TxtPromptT.Text = form.SectionPrompts?.T ?? string.Empty;
             _loadedIcd10 = form.SectionPrompts?.Icd10 ?? string.Empty;
             BtnRestoreDefault.Visibility = OutputFormsService.IsStandardForm(form.Id) ? Visibility.Visible : Visibility.Collapsed;
+            UpdateSectionStatusIndicators(form);
+        }
+
+        private void UpdateSectionStatusIndicators(SubjectForm form)
+        {
+            bool isStandard = OutputFormsService.IsStandardForm(form.Id);
+            if (!isStandard)
+            {
+                TxtStatusA.Text = string.Empty;
+                TxtStatusBe.Text = string.Empty;
+                TxtStatusT.Text = string.Empty;
+                TxtStatusN.Text = string.Empty;
+                return;
+            }
+            var p = form.SectionPrompts;
+            SetSectionStatus(TxtStatusA, p?.ACustomized ?? false);
+            SetSectionStatus(TxtStatusBe, p?.BeCustomized ?? false);
+            SetSectionStatus(TxtStatusT, p?.TCustomized ?? false);
+            SetSectionStatus(TxtStatusN, p?.NCustomized ?? false);
+        }
+
+        private static void SetSectionStatus(System.Windows.Controls.TextBlock indicator, bool isCustomized)
+        {
+            if (isCustomized)
+            {
+                indicator.Text = "Angepasst";
+                indicator.Foreground = new System.Windows.Media.SolidColorBrush(
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#F072AB"));
+            }
+            else
+            {
+                indicator.Text = "Standard";
+                indicator.Foreground = new System.Windows.Media.SolidColorBrush(
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#558FC4"));
+            }
         }
 
         private void BtnAdd_Click(object sender, RoutedEventArgs e)
@@ -95,7 +128,9 @@ namespace ABeNT
                 displayName = "Neues Formular";
             }
 
-            string newId = NormalizeId(displayName + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+            string newId = OutputFormsService.SanitizeIdForFile(displayName);
+            if (_forms.Any(f => string.Equals(f.Id, newId, StringComparison.OrdinalIgnoreCase)))
+                newId += "_" + DateTime.Now.ToString("yyyyMMddHHmmss");
             var newForm = new SubjectForm
             {
                 Id = newId,
@@ -113,7 +148,6 @@ namespace ABeNT
                 _editingFormId = newId;
                 PanelFormDetail.Visibility = Visibility.Visible;
                 BtnRemove.IsEnabled = true;
-                TxtId.IsReadOnly = false;
             }
             catch (Exception ex)
             {
@@ -148,7 +182,7 @@ namespace ABeNT
         {
             if (string.IsNullOrEmpty(_editingFormId)) return;
             var result = MessageBox.Show(
-                $"Standardvorlage für \"{_editingFormId}\" wiederherstellen? Alle Änderungen an diesem Formular gehen verloren.",
+                $"Standardvorlage für \"{TxtDisplayName.Text}\" wiederherstellen? Alle Änderungen an diesem Formular gehen verloren.",
                 "Standard wiederherstellen",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
@@ -164,7 +198,9 @@ namespace ABeNT
                     TxtPromptA.Text = form.SectionPrompts?.A ?? string.Empty;
                     TxtPromptBe.Text = form.SectionPrompts?.Be ?? string.Empty;
                     TxtPromptN.Text = form.SectionPrompts?.N ?? string.Empty;
+                    TxtPromptT.Text = form.SectionPrompts?.T ?? string.Empty;
                     _loadedIcd10 = form.SectionPrompts?.Icd10 ?? string.Empty;
+                    UpdateSectionStatusIndicators(form);
                 }
                 RefreshFormList();
                 MessageBox.Show("Standard wiederhergestellt.", "Erfolg", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -183,14 +219,13 @@ namespace ABeNT
         /// <summary>Saves the current form. Returns true on success. Optionally shows a success message.</summary>
         private bool TrySaveForm(bool showSuccessMessage)
         {
-            string id = (TxtId.Text ?? string.Empty).Trim();
             string displayName = (TxtDisplayName.Text ?? string.Empty).Trim();
-            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(displayName))
+            if (string.IsNullOrEmpty(displayName))
             {
-                MessageBox.Show("Id und Anzeigename müssen ausgefüllt sein.", "Hinweis", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Bitte einen Namen eingeben.", "Hinweis", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
-            id = NormalizeId(id);
+            string id = OutputFormsService.SanitizeIdForFile(displayName);
             string? description = (TxtDescription.Text ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(description)) description = null;
 
@@ -199,9 +234,19 @@ namespace ABeNT
                 A = TxtPromptA.Text ?? string.Empty,
                 Be = TxtPromptBe.Text ?? string.Empty,
                 N = TxtPromptN.Text ?? string.Empty,
-                T = string.Empty,
-                Icd10 = _loadedIcd10
+                T = TxtPromptT.Text ?? string.Empty,
+                Icd10 = _loadedIcd10,
+                PromptVersion = OutputFormsService.CurrentPromptVersion
             };
+
+            var defaults = OutputFormsService.GetDefaultSectionPrompts(id);
+            if (defaults != null)
+            {
+                sectionPrompts.ACustomized = !string.Equals(sectionPrompts.A.Trim(), defaults.A.Trim(), StringComparison.Ordinal);
+                sectionPrompts.BeCustomized = !string.Equals(sectionPrompts.Be.Trim(), defaults.Be.Trim(), StringComparison.Ordinal);
+                sectionPrompts.TCustomized = !string.Equals(sectionPrompts.T.Trim(), defaults.T.Trim(), StringComparison.Ordinal);
+                sectionPrompts.NCustomized = !string.Equals(sectionPrompts.N.Trim(), defaults.N.Trim(), StringComparison.Ordinal);
+            }
             var form = new SubjectForm
             {
                 Id = id,
@@ -222,7 +267,7 @@ namespace ABeNT
                 {
                     OutputFormsService.RemoveForm(_editingFormId);
                     OutputFormsService.AddForm(form);
-                    if (showSuccessMessage) MessageBox.Show("Formular unter neuer Id gespeichert.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (showSuccessMessage) MessageBox.Show("Formular umbenannt und gespeichert.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 else
                 {
@@ -230,7 +275,6 @@ namespace ABeNT
                     if (showSuccessMessage) MessageBox.Show("Formular gespeichert.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 _editingFormId = id;
-                TxtId.IsReadOnly = true;
                 RefreshFormList();
                 int idx = _forms.FindIndex(f => string.Equals(f.Id, id, StringComparison.OrdinalIgnoreCase));
                 if (idx >= 0) LstForms.SelectedIndex = idx;
@@ -259,9 +303,10 @@ namespace ABeNT
                 ClaudeApiKey = settings.ClaudeApiKey ?? string.Empty,
                 MistralApiKey = settings.MistralApiKey ?? string.Empty,
                 Gender = "Männlich",
-                IncludeBefund = settings.IncludeBefund,
-                IncludeTherapie = settings.IncludeTherapie,
-                IncludeIcd10 = settings.SuggestIcd10,
+                IncludeBefund = !string.IsNullOrWhiteSpace(TxtPromptBe.Text),
+                IncludeDiagnosen = !string.IsNullOrWhiteSpace(TxtPromptN.Text),
+                IncludeTherapie = !string.IsNullOrWhiteSpace(TxtPromptT.Text),
+                IncludeIcd10 = true,
                 RecordingMode = "Neupatient",
                 FormId = form?.Id
             };
@@ -292,26 +337,6 @@ namespace ABeNT
             finally
             {
                 BtnSaveAndTest.IsEnabled = true;
-            }
-        }
-
-        private static string NormalizeId(string id)
-        {
-            id = id.Trim().ToLowerInvariant();
-            id = Regex.Replace(id, @"[^a-z0-9_\-]", "_");
-            id = Regex.Replace(id, @"_+", "_").Trim('_');
-            return string.IsNullOrEmpty(id) ? "formular" : id;
-        }
-
-        private void BtnGeneratePrompts_Click(object sender, RoutedEventArgs e)
-        {
-            var dlg = new GeneratePromptsDialog { Owner = this };
-            if (dlg.ShowDialog() == true)
-            {
-                TxtPromptA.Text = dlg.GeneratedA;
-                TxtPromptBe.Text = dlg.GeneratedBe;
-                TxtPromptN.Text = dlg.GeneratedN;
-                _loadedIcd10 = string.Empty;
             }
         }
 

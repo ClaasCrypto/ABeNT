@@ -34,23 +34,32 @@ namespace ABeNT.Model
     }
 
     /// <summary>
-    /// Prompt text for each ABeNT section. Empty string = use built-in default when building the full prompt.
+    /// Prompt text for each ABeNT section.
+    /// String-Properties enthalten immer den effektiven Text (Standard oder Nutzeranpassung).
+    /// *Customized-Flags steuern, ob ein Code-Update den Text ersetzen darf.
     /// </summary>
     public class AbentSectionPrompts
     {
         /// <summary>Anamnese (A).</summary>
         public string A { get; set; } = string.Empty;
+        public bool ACustomized { get; set; }
 
         /// <summary>Befund (Be).</summary>
         public string Be { get; set; } = string.Empty;
-
-        /// <summary>Diagnose / Name (N).</summary>
-        public string N { get; set; } = string.Empty;
+        public bool BeCustomized { get; set; }
 
         /// <summary>Therapie (T).</summary>
         public string T { get; set; } = string.Empty;
+        public bool TCustomized { get; set; }
+
+        /// <summary>Diagnose / Name (N).</summary>
+        public string N { get; set; } = string.Empty;
+        public bool NCustomized { get; set; }
 
         /// <summary>ICD-10 (optional section).</summary>
         public string Icd10 { get; set; } = string.Empty;
+
+        /// <summary>Schema-Version der Prompts. Dient als Migrations-Marker.</summary>
+        public int PromptVersion { get; set; } = 0;
     }
 }

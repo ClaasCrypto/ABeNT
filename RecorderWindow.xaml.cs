@@ -18,6 +18,8 @@ namespace ABeNT
         private ISttService? _sttService;
         private LlmService? _llmService;
         private DispatcherTimer? _recordingTimer;
+        private DispatcherTimer? _deviceCheckTimer;
+        private List<string>? _lastDeviceList;
         private DateTime _recordingStartTime;
         private readonly List<string> _audioSegments = new List<string>();
         private bool _isPaused;
@@ -42,19 +44,25 @@ namespace ABeNT
         private void RecorderWindow_Loaded(object sender, RoutedEventArgs e)
         {
             LoadMicrophones();
-            try
-            {
-                _audioService?.StartMonitoring();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Monitoring start: {ex.Message}");
-            }
+            _lastDeviceList = (CmbMicrophones.ItemsSource as System.Collections.IList)?.Cast<string>().ToList();
+            TryStartMonitoringAfterLoad();
+            StartDeviceCheckTimer();
         }
 
         private void RecorderWindow_Closed(object? sender, EventArgs e)
         {
-            _recordingTimer?.Stop();
+            if (_deviceCheckTimer != null)
+            {
+                _deviceCheckTimer.Tick -= DeviceCheckTimer_Tick;
+                _deviceCheckTimer.Stop();
+                _deviceCheckTimer = null;
+            }
+            if (_recordingTimer != null)
+            {
+                _recordingTimer.Tick -= RecordingTimer_Tick;
+                _recordingTimer.Stop();
+                _recordingTimer = null;
+            }
             if (_audioService != null && !_audioService.IsRecording)
                 _audioService.StopMonitoring();
             SaveCurrentMicrophoneToSettings();
@@ -83,18 +91,61 @@ namespace ABeNT
             {
                 var devices = _audioService?.GetInputDevices() ?? new List<string>();
                 CmbMicrophones.ItemsSource = devices;
+
                 if (devices.Count == 0) return;
 
                 var settings = SettingsService.LoadSettings();
                 var savedName = (settings.SelectedMicrophoneDeviceName ?? string.Empty).Trim();
                 int index = string.IsNullOrEmpty(savedName) ? -1 : devices.IndexOf(savedName);
                 if (index < 0) index = 0;
+
                 CmbMicrophones.SelectedIndex = index;
                 _audioService!.SelectedDeviceIndex = index;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Load microphones: {ex.Message}");
+            }
+        }
+
+        /// <summary>Prüft periodisch, ob sich die Mikrofonliste geändert hat (z. B. Headset angesteckt). Aktualisiert die Auswahl sofort.</summary>
+        private void StartDeviceCheckTimer()
+        {
+            _deviceCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            _deviceCheckTimer.Tick += DeviceCheckTimer_Tick;
+            _deviceCheckTimer.Start();
+        }
+
+        private void DeviceCheckTimer_Tick(object? sender, EventArgs e)
+        {
+            if (_audioService == null) return;
+            var current = _audioService.GetInputDevices();
+            if (!DeviceListChanged(current, _lastDeviceList)) return;
+            _lastDeviceList = new List<string>(current);
+            LoadMicrophones();
+            TryStartMonitoringAfterLoad();
+            SaveCurrentMicrophoneToSettings();
+        }
+
+        private static bool DeviceListChanged(IList<string>? current, IList<string>? last)
+        {
+            if (current == null && last == null) return false;
+            if (current == null || last == null) return true;
+            if (current.Count != last.Count) return true;
+            return !current.SequenceEqual(last);
+        }
+
+        private void TryStartMonitoringAfterLoad()
+        {
+            try
+            {
+                if (_audioService != null && !_audioService.IsMonitoring
+                    && CmbMicrophones?.ItemsSource is System.Collections.IList list && list.Count > 0)
+                    _audioService.StartMonitoring();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Monitoring start: {ex.Message}");
             }
         }
 
@@ -125,7 +176,7 @@ namespace ABeNT
 
         private void AudioService_OnAudioLevelChanged(float level)
         {
-            Dispatcher.Invoke(() => PbAudioLevel.Value = level);
+            Dispatcher.BeginInvoke(new Action(() => PbAudioLevel.Value = level), DispatcherPriority.Background);
         }
 
         private void BtnStartNeu_Click(object sender, RoutedEventArgs e)

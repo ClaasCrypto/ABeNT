@@ -17,6 +17,12 @@ namespace ABeNT.Services
         /// <summary>Fixe Standardformulare: werden bei fehlendem Eintrag im Manifest wieder angelegt; nur für diese wird "Standard wiederherstellen" angeboten.</summary>
         private static readonly string[] StandardFormIds = { "allgemeinmedizin", "orthopaedie" };
 
+        /// <summary>Bei jeder Prompt-Änderung im Code erhöhen. Standardformulare mit niedrigerer Version werden automatisch aktualisiert.</summary>
+        public const int CurrentPromptVersion = 9;
+
+        /// <summary>Version des Code-Standards für den Universal-Prompt. Bei Änderung erhöhen.</summary>
+        public const int CurrentUniversalPromptVersion = 1;
+
         private static string GetAppFolder()
         {
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -42,11 +48,12 @@ namespace ABeNT.Services
             return Path.Combine(GetAppFolder(), "app-config.json");
         }
 
-        /// <summary>Id für Dateinamen bereinigen (nur a-z, 0-9, _, -).</summary>
-        private static string SanitizeIdForFile(string id)
+        /// <summary>Id für Dateinamen bereinigen: Deutsche Umlaute transliterieren, dann nur a-z, 0-9, _, -.</summary>
+        public static string SanitizeIdForFile(string id)
         {
             if (string.IsNullOrWhiteSpace(id)) return "form";
             id = id.Trim().ToLowerInvariant();
+            id = id.Replace("ä", "ae").Replace("ö", "oe").Replace("ü", "ue").Replace("ß", "ss");
             id = Regex.Replace(id, @"[^a-z0-9_\-]", "_");
             id = Regex.Replace(id, @"_+", "_").Trim('_');
             return string.IsNullOrEmpty(id) ? "form" : id;
@@ -76,6 +83,20 @@ namespace ABeNT.Services
                     if (list != null && list.Count > 0)
                     {
                         bool changed = false;
+
+                        // Veraltete Formulare entfernen (Upgrade-Migration)
+                        var deprecatedIds = new[] { "neurologie", "echokardiographie" };
+                        foreach (string depId in deprecatedIds)
+                        {
+                            if (list.RemoveAll(f => string.Equals(f, depId, StringComparison.OrdinalIgnoreCase)) > 0)
+                            {
+                                string depPath = GetFormFilePath(depId);
+                                try { if (File.Exists(depPath)) File.Delete(depPath); } catch { /* ignore */ }
+                                changed = true;
+                            }
+                        }
+
+                        // Fehlende Standardformulare ergänzen
                         foreach (string stdId in StandardFormIds)
                         {
                             if (!list.Any(f => string.Equals(f, stdId, StringComparison.OrdinalIgnoreCase)))
@@ -118,7 +139,7 @@ namespace ABeNT.Services
                         if (!string.IsNullOrWhiteSpace(config.UniversalPrompt))
                         {
                             var appConfig = new AppConfig { UniversalPrompt = config.UniversalPrompt };
-                            File.WriteAllText(GetAppConfigPath(), JsonConvert.SerializeObject(appConfig, Formatting.Indented));
+                            SaveAppConfig(appConfig);
                         }
                         SaveManifest(ids);
                         return ids;
@@ -127,8 +148,8 @@ namespace ABeNT.Services
                 catch { /* ignore */ }
             }
 
-            // Neuer Start: Standardformulare anlegen
-            var defaultIds = new List<string> { "allgemeinmedizin", "orthopaedie", "neurologie", "echokardiographie" };
+            // Neuer Start: nur die beiden Standardformulare anlegen
+            var defaultIds = new List<string>(StandardFormIds);
             foreach (string id in defaultIds)
             {
                 var form = GetDefaultFormById(id);
@@ -176,15 +197,10 @@ namespace ABeNT.Services
                 if (form == null) return null;
                 if (string.IsNullOrWhiteSpace(form.Id))
                     form.Id = id.Trim();
-                if (IsStandardForm(id) && NeedsPromptRefresh(form.SectionPrompts))
-                {
-                    var updated = GetDefaultFormById(id);
-                    if (updated != null)
-                    {
-                        form.SectionPrompts = updated.SectionPrompts;
-                        SaveFormToFile(form);
-                    }
-                }
+
+                if (IsStandardForm(id))
+                    ApplyStandardDefaults(form, id);
+
                 return form;
             }
             catch
@@ -193,31 +209,52 @@ namespace ABeNT.Services
             }
         }
 
-        private static bool NeedsPromptRefresh(AbentSectionPrompts? p)
+        /// <summary>
+        /// Gleicht ein Standardformular mit den Code-Defaults ab.
+        /// Pre-Flag-Migration: Erkennt Nutzer-Anpassungen durch Textvergleich.
+        /// Post-Flag: Vertraut den *Customized-Flags und aktualisiert nur nicht-angepasste Sektionen.
+        /// </summary>
+        private static void ApplyStandardDefaults(SubjectForm form, string id)
         {
-            if (p == null) return false;
-            if (!string.IsNullOrWhiteSpace(p.A))
+            var codeDef = GetDefaultFormById(id);
+            if (codeDef == null) return;
+
+            var p = form.SectionPrompts ?? new AbentSectionPrompts();
+            var d = codeDef.SectionPrompts;
+            bool changed = false;
+
+            // Einmalige Migration von Formularen ohne *Customized-Flags (PromptVersion < 9).
+            // Textvergleich mit aktuellem Default: Abweichung → als Nutzer-Anpassung bewerten.
+            if (p.PromptVersion < 9)
             {
-                if (!p.A.Contains("FACH-MODUL ANAMNESE:", StringComparison.Ordinal))
-                    return true;
-                if (!p.A.Contains("Erstelle aus dem Transkript", StringComparison.Ordinal))
-                    return true;
-                if (p.A.Contains("Jetziges Leiden:", StringComparison.Ordinal))
-                    return true;
-                if (p.A.Contains("Noxen / Sozialanamnese", StringComparison.Ordinal))
-                    return true;
+                p.ACustomized = !string.IsNullOrEmpty(p.A?.Trim()) &&
+                                !string.Equals(p.A?.Trim(), d.A?.Trim(), StringComparison.Ordinal);
+                p.BeCustomized = !string.IsNullOrEmpty(p.Be?.Trim()) &&
+                                 !string.Equals(p.Be?.Trim(), d.Be?.Trim(), StringComparison.Ordinal);
+                p.TCustomized = !string.IsNullOrEmpty(p.T?.Trim()) &&
+                                !string.Equals(p.T?.Trim(), d.T?.Trim(), StringComparison.Ordinal);
+                p.NCustomized = !string.IsNullOrEmpty(p.N?.Trim()) &&
+                                !string.Equals(p.N?.Trim(), d.N?.Trim(), StringComparison.Ordinal);
+                changed = true;
             }
-            if (!string.IsNullOrWhiteSpace(p.Be))
+
+            if (!p.ACustomized && !string.Equals(p.A, d.A ?? string.Empty))
+            { p.A = d.A ?? string.Empty; changed = true; }
+            if (!p.BeCustomized && !string.Equals(p.Be, d.Be ?? string.Empty))
+            { p.Be = d.Be ?? string.Empty; changed = true; }
+            if (!p.TCustomized && !string.Equals(p.T, d.T ?? string.Empty))
+            { p.T = d.T ?? string.Empty; changed = true; }
+            if (!p.NCustomized && !string.Equals(p.N, d.N ?? string.Empty))
+            { p.N = d.N ?? string.Empty; changed = true; }
+
+            if (p.PromptVersion != CurrentPromptVersion)
             {
-                if (!p.Be.Contains("FACH-MODUL BEFUND:", StringComparison.Ordinal))
-                    return true;
-                if (!p.Be.Contains("Erstelle aus dem Transkript", StringComparison.Ordinal)
-                    && !p.Be.Contains("Dokumentiere die echokardiographischen", StringComparison.Ordinal))
-                    return true;
+                p.PromptVersion = CurrentPromptVersion;
+                changed = true;
             }
-            if (string.IsNullOrWhiteSpace(p.N))
-                return true;
-            return false;
+
+            form.SectionPrompts = p;
+            if (changed) SaveFormToFile(form);
         }
 
         private static SubjectForm? GetDefaultFormById(string id)
@@ -226,10 +263,6 @@ namespace ABeNT.Services
                 return CreateDefaultAllgemeinmedizinForm();
             if (string.Equals(id, "orthopaedie", StringComparison.OrdinalIgnoreCase))
                 return CreateDefaultOrthopaedieForm();
-            if (string.Equals(id, "neurologie", StringComparison.OrdinalIgnoreCase))
-                return CreateDefaultNeurologieForm();
-            if (string.Equals(id, "echokardiographie", StringComparison.OrdinalIgnoreCase))
-                return CreateDefaultEchokardiographieForm();
             return null;
         }
 
@@ -320,43 +353,111 @@ namespace ABeNT.Services
 
         public static string GetUniversalPrompt()
         {
-            string path = GetAppConfigPath();
-            if (!File.Exists(path))
-                return GetDefaultUniversalPrompt();
-            try
+            var config = LoadAppConfig();
+
+            // Migration: alte app-config.json ohne UniversalPromptVersion
+            if (config.UniversalPromptVersion == 0 && !string.IsNullOrWhiteSpace(config.UniversalPrompt))
             {
-                string json = File.ReadAllText(path);
-                var config = JsonConvert.DeserializeObject<AppConfig>(json);
-                if (!string.IsNullOrWhiteSpace(config?.UniversalPrompt))
-                    return config.UniversalPrompt;
+                bool hasOldMarkers = ContainsOldMarkers(config.UniversalPrompt);
+                string defaultText = GetDefaultUniversalPrompt();
+                bool differs = !hasOldMarkers &&
+                               !string.Equals(config.UniversalPrompt.Trim(), defaultText.Trim(), StringComparison.Ordinal);
+                config.UniversalPromptCustomized = differs;
+                config.UniversalPromptVersion = CurrentUniversalPromptVersion;
+                SaveAppConfig(config);
+                return differs ? config.UniversalPrompt : defaultText;
             }
-            catch { /* ignore */ }
+
+            // Reparatur: bereits migrierte Prompts mit alten Markern (**A**, **Be** etc.)
+            // sind inkompatibel mit dem neuen [ABSCHNITT:X]-System.
+            if (config.UniversalPromptCustomized && !string.IsNullOrWhiteSpace(config.UniversalPrompt)
+                && ContainsOldMarkers(config.UniversalPrompt))
+            {
+                config.UniversalPromptCustomized = false;
+                config.UniversalPrompt = string.Empty;
+                config.UniversalPromptVersion = CurrentUniversalPromptVersion;
+                SaveAppConfig(config);
+                return GetDefaultUniversalPrompt();
+            }
+
+            if (config.UniversalPromptCustomized && !string.IsNullOrWhiteSpace(config.UniversalPrompt))
+                return config.UniversalPrompt;
+
             return GetDefaultUniversalPrompt();
         }
 
         public static void SetUniversalPrompt(string universalPrompt)
         {
+            var config = LoadAppConfig();
+            config.UniversalPrompt = universalPrompt ?? string.Empty;
+            config.UniversalPromptCustomized = true;
+            config.UniversalPromptVersion = CurrentUniversalPromptVersion;
+            SaveAppConfig(config);
+        }
+
+        /// <summary>Setzt den Universal-Prompt auf den Code-Standard zurück.</summary>
+        public static void RestoreDefaultUniversalPrompt()
+        {
+            var config = LoadAppConfig();
+            config.UniversalPrompt = string.Empty;
+            config.UniversalPromptCustomized = false;
+            config.UniversalPromptVersion = CurrentUniversalPromptVersion;
+            SaveAppConfig(config);
+        }
+
+        /// <summary>Gibt true zurück, wenn der Nutzer den Universal-Prompt individuell angepasst hat.</summary>
+        public static bool IsUniversalPromptCustomized()
+        {
+            var config = LoadAppConfig();
+            if (config.UniversalPromptVersion == 0 && !string.IsNullOrWhiteSpace(config.UniversalPrompt))
+            {
+                if (ContainsOldMarkers(config.UniversalPrompt)) return false;
+                string defaultText = GetDefaultUniversalPrompt();
+                return !string.Equals(config.UniversalPrompt.Trim(), defaultText.Trim(), StringComparison.Ordinal);
+            }
+            if (config.UniversalPromptCustomized && !string.IsNullOrWhiteSpace(config.UniversalPrompt)
+                && ContainsOldMarkers(config.UniversalPrompt))
+                return false;
+            return config.UniversalPromptCustomized;
+        }
+
+        /// <summary>Erkennt alte Markdown-basierte Sektionsmarker im Prompt-Text.</summary>
+        private static bool ContainsOldMarkers(string text)
+        {
+            return text.Contains("**A**") || text.Contains("**Be**")
+                || text.Contains("**N**") || text.Contains("**ICD");
+        }
+
+        /// <summary>Gibt den Code-Standard des Universal-Prompts zurück (öffentlich für UI-Vergleich).</summary>
+        public static string GetDefaultUniversalPromptText() => GetDefaultUniversalPrompt();
+
+        /// <summary>Gibt die Code-Standard-SectionPrompts eines Standardformulars zurück (null für Nicht-Standard).</summary>
+        public static AbentSectionPrompts? GetDefaultSectionPrompts(string formId)
+        {
+            var form = GetDefaultFormById(formId);
+            return form?.SectionPrompts;
+        }
+
+        private static AppConfig LoadAppConfig()
+        {
             string path = GetAppConfigPath();
-            AppConfig config;
+            if (!File.Exists(path))
+                return new AppConfig();
             try
             {
-                if (File.Exists(path))
-                {
-                    string json = File.ReadAllText(path);
-                    config = JsonConvert.DeserializeObject<AppConfig>(json) ?? new AppConfig();
-                }
-                else
-                    config = new AppConfig();
+                string json = File.ReadAllText(path);
+                return JsonConvert.DeserializeObject<AppConfig>(json) ?? new AppConfig();
             }
-            catch
-            {
-                config = new AppConfig();
-            }
-            config.UniversalPrompt = universalPrompt ?? string.Empty;
+            catch { return new AppConfig(); }
+        }
+
+        private static void SaveAppConfig(AppConfig config)
+        {
+            string path = GetAppConfigPath();
             File.WriteAllText(path, JsonConvert.SerializeObject(config, Formatting.Indented));
         }
 
-        public static string BuildSystemPromptFromConfig(string? formId, string gender, bool includeBefund, bool includeTherapie, bool includeIcd10, string recordingMode = "Neupatient")
+        public static string BuildSystemPromptFromConfig(string? formId, string gender, bool includeBefund, bool includeDiagnosen, bool includeTherapie, bool includeIcd10, string recordingMode = "Neupatient")
         {
             string universal = GetUniversalPrompt();
             var form = !string.IsNullOrWhiteSpace(formId) ? GetForm(formId) : null;
@@ -376,12 +477,12 @@ namespace ABeNT.Services
 
             bool includeA = !string.IsNullOrWhiteSpace(form?.SectionPrompts?.A);
             if (!includeA && form == null) includeA = true;
-            bool includeN = true;
-            sb.AppendLine("\nOutput-Struktur:");
-            if (includeA) sb.AppendLine("Erstelle **A** (Anamnese).");
-            if (includeBefund) sb.AppendLine("Erstelle **Be** (Befund).");
-            if (includeN) sb.AppendLine("Erstelle **N** (Diagnosen" + (includeIcd10 ? " inkl. ICD-10-Codierung" : "") + ").");
-            if (includeTherapie) sb.AppendLine("Erstelle **T** (Therapie).");
+            bool includeN = includeDiagnosen;
+            sb.AppendLine("\nOutput-Struktur (trenne die Abschnitte mit den exakten Markern):");
+            if (includeA) sb.AppendLine("- [ABSCHNITT:A] (Anamnese)");
+            if (includeBefund) sb.AppendLine("- [ABSCHNITT:Be] (Befund)");
+            if (includeTherapie) sb.AppendLine("- [ABSCHNITT:T] (Therapie)");
+            if (includeN) sb.AppendLine("- [ABSCHNITT:N] (Diagnosen" + (includeIcd10 ? " inkl. ICD-10-Codierung" : "") + ")");
 
             sb.AppendLine("\nSTRUKTURVORGABEN:");
 
@@ -389,27 +490,53 @@ namespace ABeNT.Services
             {
                 string promptA = form?.SectionPrompts?.A?.Trim() ?? "";
                 if (string.IsNullOrEmpty(promptA)) promptA = GetDefaultSectionA();
-                sb.AppendLine("\n**A**\n[ANWEISUNG:\n" + promptA + "\n]");
+                sb.AppendLine("\n[ABSCHNITT:A]\n" + promptA);
             }
 
             if (includeBefund)
             {
                 string promptBe = form?.SectionPrompts?.Be?.Trim() ?? "";
                 if (string.IsNullOrEmpty(promptBe)) promptBe = GetDefaultSectionBe();
-                sb.AppendLine("\n**Be**\n[ANWEISUNG:\n" + promptBe + "\n]");
+                sb.AppendLine("\n[ABSCHNITT:Be]\n" + promptBe);
+            }
+            if (includeTherapie)
+            {
+                string promptT = form?.SectionPrompts?.T?.Trim() ?? "";
+                if (string.IsNullOrEmpty(promptT)) promptT = GetDefaultSectionT();
+                if (!string.IsNullOrEmpty(promptT))
+                    sb.AppendLine("\n[ABSCHNITT:T]\n" + promptT);
             }
             if (includeN)
             {
                 string promptN = form?.SectionPrompts?.N?.Trim() ?? "";
                 if (string.IsNullOrEmpty(promptN)) promptN = GetDefaultSectionN();
-                sb.AppendLine("\n**N**\n[ANWEISUNG:\n" + promptN + "\n]");
+                sb.AppendLine("\n[ABSCHNITT:N]\n" + promptN);
             }
-            if (includeTherapie)
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Baut den System-Prompt für die Diktat-Funktion.
+        /// Enthält Universal-Basis (ohne Sprecher-Erkennung) + Diktat-Kontext + Sektions-Prompt.
+        /// </summary>
+        public static string BuildDictationPrompt(string sectionPrompt)
+        {
+            var sb = new System.Text.StringBuilder();
+
+            sb.AppendLine("Du bist ein präziser medizinischer Dokumentations-Assistent für Einträge in die Patientenakte.");
+            sb.AppendLine();
+            sb.AppendLine("Format: Reiner Text, kein Markdown. Keine Formatierungszeichen.");
+            sb.AppendLine();
+            sb.AppendLine("Sprache: Nutze durchgehend ärztliche Fachsprache. Verwende gängige medizinische Abkürzungen: re. (rechts), li. (links), bds. (beidseits), o.B. (ohne Befund), Z.n. (Zustand nach), V.a. (Verdacht auf), ED (Erstdiagnose), DD (Differentialdiagnose), ggf. (gegebenenfalls), bzgl. (bezüglich), ca. (circa), Pat. (Patient/in).");
+            sb.AppendLine();
+            sb.AppendLine("Kontext: Ein Arzt diktiert direkt. Strukturiere und formuliere das Diktat gemäß den folgenden Anweisungen. Ergänze oder erfinde keine Informationen.");
+
+            if (!string.IsNullOrWhiteSpace(sectionPrompt))
             {
-                string promptT = form?.SectionPrompts?.T?.Trim() ?? "";
-                if (!string.IsNullOrEmpty(promptT))
-                    sb.AppendLine("\n**T**\n[ANWEISUNG:\n" + promptT + "\n]");
+                sb.AppendLine();
+                sb.AppendLine(sectionPrompt);
             }
+
             return sb.ToString();
         }
 
@@ -420,40 +547,29 @@ namespace ABeNT.Services
             return @"FACH-MODUL ANAMNESE: ALLGEMEINMEDIZIN
 
 <system_instruktion>
-Du bist ein medizinischer Assistent. Extrahiere aus dem folgenden Arzt-Patienten-Gespräch die Anamnese.
+Extrahiere aus dem folgenden Arzt-Patienten-Gespräch die Anamnese.
 Wende zwingend den Nominalstil oder sehr kurze, objektive Sätze an. Filtere Smalltalk und medizinisch irrelevante Gesprächsanteile rigoros heraus.
 </system_instruktion>
 
 <formatierungs_regeln>
-1. Ausgabe-Format: Verwende EXAKT die Struktur, die im Tag <ausgabe_template> vorgegeben ist. Ändere keine Überschriften.
+1. Ausgabe-Format: Reiner Text, kein Markdown.
 2. Platzhalter-Logik: Ersetze die Bereiche in den eckigen Klammern [...] durch die aus dem Transkript extrahierten Informationen. Die Parameter in den Klammern definieren den erwarteten Suchraum, sie dürfen nicht als fester Text übernommen werden, wenn das Transkript abweicht.
 3. Fallback-Regel (Global): Wenn eine Information im Transkript nicht thematisiert wird, trage exakt ""k. A."" ein. Wenn der Patient ein Symptom, eine Erkrankung oder Medikation explizit verneint, trage ""keine"" bzw. ""keine bekannt"" ein.
 4. Ausnahme Vegetative Anamnese: Wenn im Gespräch hierzu absolut keine Angaben gemacht wurden, lasse diese Kategorie (inklusive Überschrift) in der Endausgabe komplett weg.
 5. Ausnahme Sozialanamnese: Wenn besprochen, aber unauffällig, trage exakt ""Sozialanamnese unauffällig."" ein.
-6. Format Dauermedikation: Nutze für jedes Medikament einen neuen Listenpunkt. Format: [Medikamentenname] - [Dosierung] - [Schema]. Ausnahme zur Fallback-Regel: Nur die im Gespräch genannten Angaben ausgeben; fehlende Dosierung oder fehlendes Schema nicht mit ""k. A."" auffüllen – nur Medikamentenname bzw. Name und genannte Teile angeben.
+6. Format Dauermedikation: Nutze für jedes Medikament einen neuen Listenpunkt. Format: [Medikamentenname] [Dosierung], [Schema ist zwingend im Format X-X-X (morgens-mittags-abends) oder X-X-X-X (morgens-mittags-abends-zur Nacht) anzugeben (z. B. 1-0-1 oder 0-0-0-1)]. Ausnahme zur Fallback-Regel: Nur die im Gespräch genannten Angaben ausgeben; fehlende Dosierung oder fehlendes Schema nicht mit ""k. A."" auffüllen – nur Medikamentenname bzw. Name und genannte Teile angeben.
 7. Format Allergien: Nutze das Format: [Auslöser] - [Reaktionstyp].
 8. Abgrenzung: Unter ""Nebendiagnosen / Vorerkrankungen"" keinen Verlauf und keine aktuelle Symptomatik aufführen – diese gehören unter ""Aktuell"".
 </formatierungs_regeln>
 
 <ausgabe_template>
-Aktuell
+Aktuell:
 [Zusammenfassung: Lokalisation, Charakter, Dauer, Auslöser, zeitlicher Verlauf, Begleitsymptome, Selbstmedikation/Akutbehandlung]
-
-Nebendiagnosen / Vorerkrankungen
-[Kommagetrennte Liste: chronische Erkrankungen, relevante Vordiagnosen, Operationen, familiäre Belastung]
-
-Dauermedikation
-- [Medikament A] - [Dosierung] - [Schema]
-- [Medikament B] - [Dosierung] - [Schema]
-
-Allergien / Unverträglichkeiten
-[Auslöser] - [Reaktionstyp]
-
-Vegetative Anamnese
-[Angaben zu B-Symptomatik (Fieber, Nachtschweiß, Gewichtsveränderung), Appetit, Schlaf, Miktion, Stuhlgang. Gewicht als Messwert gehört in die Vitalparameter, nicht hierher.]
-
-Sozialanamnese
-[Beruf inkl. Belastung, sportliche Aktivität, häusliche Situation, Pflegebedarf, Nikotinkonsum, Alkoholkonsum]
+Nebendiagnosen / Vorerkrankungen: [Kommagetrennte Liste: chronische Erkrankungen, relevante Vordiagnosen, Operationen, familiäre Belastung]
+Dauermedikation: [Medikament A] [Dosierung], [Schema]; [Medikament B] [Dosierung], [Schema];
+Allergien / Unverträglichkeiten: [Auslöser] - [Reaktionstyp]
+Vegetative Anamnese: [Angaben zu B-Symptomatik (Fieber, Nachtschweiß, Gewichtsveränderung), Appetit, Schlaf, Miktion, Stuhlgang. Gewicht als Messwert gehört in die Vitalparameter, nicht hierher.]
+Sozialanamnese: [Beruf inkl. Belastung, sportliche Aktivität, häusliche Situation, Pflegebedarf, Nikotinkonsum, Alkoholkonsum]
 </ausgabe_template>";
         }
 
@@ -462,72 +578,30 @@ Sozialanamnese
             return @"FACH-MODUL ANAMNESE: ORTHOPÄDIE
 
 <system_instruktion>
-Du bist ein medizinischer Assistent. Extrahiere aus dem folgenden Arzt-Patienten-Gespräch die Anamnese.
+Extrahiere aus dem folgenden Arzt-Patienten-Gespräch die Anamnese.
 Wende zwingend den Nominalstil oder sehr kurze, objektive Sätze an. Extrahiere jedes medizinische Detail präzise, filtere Smalltalk und medizinisch irrelevante Gesprächsanteile jedoch rigoros heraus.
 </system_instruktion>
 
 <formatierungs_regeln>
-1. Ausgabe-Format: Verwende EXAKT die Struktur, die im Tag <ausgabe_template> vorgegeben ist. Ändere keine Überschriften.
+1. Ausgabe-Format: Reiner Text, kein Markdown.
 2. Platzhalter-Logik: Ersetze die Bereiche in den eckigen Klammern [...] durch die aus dem Transkript extrahierten Informationen. Die Parameter in den Klammern (z.B. stechend/ziehend/dumpf/brennend) definieren den erwarteten Suchraum, sie dürfen nicht als fester Text übernommen werden, wenn das Transkript abweicht.
 3. Fallback-Regel (Global): Wenn eine Information im Transkript nicht thematisiert wird, trage exakt ""k. A."" ein. Wenn der Patient eine Entität (Symptom, Vorerkrankung, Medikation, Allergie) explizit verneint, trage ""keine"" bzw. ""keine bekannt"" ein.
 4. Ausnahme Vegetative Anamnese: Wenn im Gespräch hierzu absolut keine Angaben gemacht wurden, lasse diese Kategorie (inklusive Überschrift) in der Endausgabe komplett weg.
 5. Ausnahme Sozialanamnese: Wenn besprochen, aber unauffällig, trage exakt ""Sozialanamnese unauffällig."" ein.
-6. Format Dauermedikation: Nutze für jedes Medikament einen neuen Listenpunkt. Format: [Medikamentenname] - [Dosierung] - [Einnahmeschema]. Ausnahme zur Fallback-Regel: Nur die im Gespräch genannten Angaben ausgeben; fehlende Dosierung oder Einnahmeschema nicht mit ""k. A."" auffüllen – nur Medikamentenname bzw. Name und genannte Teile angeben.
+6. Format Dauermedikation: Nutze für jedes Medikament einen neuen Listenpunkt. Format: [Medikamentenname] [Dosierung], [Schema ist zwingend im Format X-X-X (morgens-mittags-abends) oder X-X-X-X (morgens-mittags-abends-zur Nacht) anzugeben (z. B. 1-0-1 oder 0-0-0-1)]. Ausnahme zur Fallback-Regel: Nur die im Gespräch genannten Angaben ausgeben; fehlende Dosierung oder Einnahmeschema nicht mit ""k. A."" auffüllen – nur Medikamentenname bzw. Name und genannte Teile angeben.
 7. Format Allergien: Nutze das Format: [Auslöser] - [Reaktionstyp].
 8. Abgrenzung: Unter ""Nebendiagnosen / Vorerkrankungen"" keinen Verlauf und keine aktuelle Symptomatik aufführen – diese gehören unter ""Aktuell"".
 </formatierungs_regeln>
 
 <ausgabe_template>
-Aktuell
-[Zusammenfassung: Lokalisation, Seitenangabe, Ausstrahlung, Charakter, Auslöser, zeitlicher Verlauf, Begleitsymptome, Selbstmedikation/bisherige Behandlung]
-
-Nebendiagnosen / Vorerkrankungen
-[Kommagetrennte Liste: Orthopädische Voroperationen, Frakturen, bekannte degenerative Veränderungen, rheumatologische Grunderkrankungen, sonstige relevante Begleitdiagnosen]
-
-Dauermedikation
-- [Medikamentenname] - [Dosierung] - [Einnahmeschema]
-- [Medikamentenname] - [Dosierung] - [Einnahmeschema]
-
-Allergien / Unverträglichkeiten
-[Auslöser] - [Reaktionstyp]
-
-Vegetative Anamnese
-[Angaben zu: Schlafstörungen durch Schmerzen, B-Symptomatik (Fieber, Nachtschweiß, Gewichtsveränderung). Gewicht als Messwert gehört in die Vitalparameter, nicht hierher.]
-
-Sozialanamnese
-[Angaben zu: Beruf inkl. körperlicher Belastung/Überkopfarbeit/sitzender Tätigkeit, sportliche Aktivität, häusliche Situation, Pflegebedarf, Nikotinkonsum, Alkoholkonsum]
-</ausgabe_template>";
-        }
-
-        private static string GetDefaultAnamnesePromptNE()
-        {
-            return @"FACH-MODUL ANAMNESE: NEUROLOGIE
-
-Erstelle aus dem Transkript die Anamnese im Nominalstil oder in kurzen, objektiven Sätzen. Vergiss kein medizinisches Detail (Symptomcharakter, zeitlicher Verlauf, Auslöser, Begleitsymptome), lasse aber Smalltalk und irrelevante Gesprächsanteile rigoros weg.
-
-Formatierung: Schreibe jede Unterkategorie als eigene Überschriftszeile, darunter den Inhalt als Fließtext oder kommagetrennte Aufzählung. Beginne nach jeder Unterkategorie eine neue Zeile, aber keine Leerzeile dazwischen.
-
 Aktuell:
-Beginne mit dem Vorstellungsgrund. Fasse zusammen: Art der Symptomatik (Schmerz, Sensibilitätsstörung, Paresen, Schwindel, Kopfschmerzen, Krampfanfälle, kognitive Defizite), Lokalisation, Seitenangabe, Ausstrahlung/Dermatomzuordnung, zeitlicher Verlauf (akut/subakut/chronisch, progredient/rezidivierend/konstant), Auslöser, Begleitsymptome (Übelkeit, Erbrechen, Sehstörungen, Sprachstörungen, Gangunsicherheit). Erwähne bisherige neurologische Diagnostik (MRT, CT, EEG, NLG/EMG, Liquorpunktion) und Vorbehandlungen.
-Bei Kopfschmerzen: Frequenz, Dauer der Einzelattacke, Aura, Trigger, begleitende Photo-/Phonophobie.
-Bei Schwindel: Drehschwindel vs. Schwankschwindel, Dauer, Lageabhängigkeit, Nystagmus.
-Bei Anfallsleiden: Anfallstyp, Frequenz, letzte Episode, Prodromi, postiktale Phase.
-Nebendiagnosen / Vorerkrankungen:
-Nur neurologische Vorerkrankungen (Epilepsie, MS, Schlaganfall, Polyneuropathie), psychiatrische Komorbidität, Schädel-Hirn-Traumata, neurochirurgische Eingriffe, vaskuläre Risikofaktoren, Familienanamnese – kommagetrennt. Kein Verlauf und keine aktuelle Symptomatik (diese gehören unter ""Aktuell"").
-Fallback: ""k. A."" wenn nicht erwähnt, ""keine"" wenn Patient explizit keine Nebendiagnosen oder Vorerkrankungen hat.
-Dauermedikation:
-Jedes Medikament in eine neue Zeile. Format: Name Dosierung Einnahmeschema (z.B. Levetiracetam 500 mg 1-0-1).
-Besondere Beachtung von: Antikonvulsiva, Antikoagulantien, Antidepressiva, Neuroleptika, Analgetika inkl. Triptane.
-Fallback: ""k. A."" wenn nicht erwähnt, ""keine"" wenn Patient explizit keine Medikamente nimmt.
-Allergien / Unverträglichkeiten:
-Auslöser und Reaktionstyp sofern genannt.
-Fallback: ""k. A."" wenn nicht erwähnt, ""keine bekannt"" wenn Patient explizit verneint.
-Vegetative Anamnese:
-Nur Schlafstörungen (Ein-/Durchschlaf, Schlafapnoe, REM-Schlaf-Verhaltensstörung), Blasen-/Mastdarmfunktion, Schweißsekretionsstörungen, orthostatische Beschwerden. RR und Gewicht gehören nicht hierher (Vitalparameter/Befund).
-Fallback: Wenn im Gespräch nicht thematisiert, diese Kategorie komplett weglassen (auch die Überschrift nicht nennen).
-Sozialanamnese:
-Beruf (Nacht-/Schichtarbeit, Exposition gegenüber Neurotoxinen), Fahrtauglichkeit, häusliche Versorgungssituation, Pflegebedarf, Mobilität. Nikotinkonsum, Alkoholkonsum (insbesondere bzgl. Polyneuropathie, Anfallsrisiko).
-Fallback: ""Sozialanamnese unauffällig."" wenn besprochen aber unauffällig. ""k. A."" wenn nicht erwähnt.";
+[Zusammenfassung: Lokalisation, Seitenangabe, Ausstrahlung, Charakter, Auslöser, zeitlicher Verlauf, Begleitsymptome, Selbstmedikation/bisherige Behandlung]
+Nebendiagnosen / Vorerkrankungen: [Kommagetrennte Liste: Orthopädische Voroperationen, Frakturen, bekannte degenerative Veränderungen, rheumatologische Grunderkrankungen, sonstige relevante Begleitdiagnosen]
+Dauermedikation: [Medikamentenname] [Dosierung], [Einnahmeschema]; [Medikamentenname] [Dosierung], [Einnahmeschema];
+Allergien / Unverträglichkeiten: [Auslöser] - [Reaktionstyp]
+Vegetative Anamnese: [Angaben zu: Schlafstörungen durch Schmerzen, B-Symptomatik (Fieber, Nachtschweiß, Gewichtsveränderung). Gewicht als Messwert gehört in die Vitalparameter, nicht hierher.]
+Sozialanamnese: [Angaben zu: Beruf inkl. körperlicher Belastung/Überkopfarbeit/sitzender Tätigkeit, sportliche Aktivität, häusliche Situation, Pflegebedarf, Nikotinkonsum, Alkoholkonsum]
+</ausgabe_template>";
         }
 
         internal static string GetDefaultBefundPromptAM()
@@ -535,7 +609,7 @@ Fallback: ""Sozialanamnese unauffällig."" wenn besprochen aber unauffällig. ""
             return @"FACH-MODUL BEFUND: ALLGEMEINMEDIZIN
 
 <system_instruktion>
-Du bist ein medizinischer Assistent für die klinische Dokumentation. Extrahiere aus dem Transkript ausschließlich durchgeführte körperliche Untersuchungen und deren Ergebnisse.
+Extrahiere aus dem Transkript ausschließlich durchgeführte körperliche Untersuchungen und deren Ergebnisse.
 Oberste Direktive: Generiere keine False Positives. Es gilt striktes Zero-Shot-Verhalten bezüglich medizinischer Befunde. Was nicht explizit im Transkript genannt oder gemessen wurde, existiert nicht.
 Explizit erhobene Negativbefunde (z.B. ""kein Druckschmerz"", ""keine Rasselgeräusche"") sind reale Untersuchungsergebnisse und werden dokumentiert.
 </system_instruktion>
@@ -554,7 +628,7 @@ Prüfe das Transkript auf Entitäten aus folgenden Kategorien. Diese Liste dient
 </extraktions_parameter>
 
 <formatierungs_regeln>
-1. Ausgabe-Format: Nutze ausschließlich Markdown.
+1. Ausgabe-Format: Reiner Text, kein Markdown.
 2. Dynamische Blöcke: Erstelle nur dann einen Block für ein Organsystem, wenn im Transkript tatsächliche Befunde dazu vorliegen.
 3. Struktur pro Block: [Organsystem] [Seitenangabe, falls zutreffend]: [Einzelbefunde durch Komma getrennt]. Jeden Block mit Punkt abschließen.
 4. Vitalparameter: Wenn Vitalparameter extrahiert wurden, müssen diese zwingend als allererster Block unter der Überschrift ""Vitalparameter:"" stehen. Format: [Parameter] [Wert] [Einheit], kommagetrennt.
@@ -567,7 +641,7 @@ Prüfe das Transkript auf Entitäten aus folgenden Kategorien. Diese Liste dient
             return @"FACH-MODUL BEFUND: ORTHOPÄDIE
 
 <system_instruktion>
-Du bist ein medizinischer Assistent für die klinische Dokumentation. Extrahiere aus dem Transkript ausschließlich durchgeführte körperliche Untersuchungen und deren Ergebnisse.
+Extrahiere aus dem Transkript ausschließlich durchgeführte körperliche Untersuchungen und deren Ergebnisse.
 Oberste Direktive: Generiere keine False Positives. Es gilt striktes Zero-Shot-Verhalten bezüglich medizinischer Befunde. Was nicht explizit im Transkript genannt oder gemessen wurde, existiert nicht.
 Explizit erhobene Negativbefunde (z.B. ""Lachman-Test negativ"", ""kein Erguss"") sind reale Untersuchungsergebnisse und werden dokumentiert.
 Übernimm genannte Testbezeichnungen wörtlich.
@@ -586,64 +660,12 @@ Prüfe das Transkript auf Entitäten aus folgenden Kategorien. Diese Liste dient
 </extraktions_parameter>
 
 <formatierungs_regeln>
-1. Ausgabe-Format: Nutze ausschließlich Markdown.
+1. Ausgabe-Format: Reiner Text, kein Markdown.
 2. Dynamische Blöcke: Erstelle nur dann einen Block für eine anatomische Region, wenn im Transkript tatsächliche Befunde dazu vorliegen.
 3. Struktur pro Block: [Region] [re./li./bds.]: [Einzelbefunde durch Komma getrennt]. Jeden Block mit Punkt abschließen.
 4. Vitalparameter: Wenn Vitalparameter extrahiert wurden, müssen diese zwingend als allererster Block unter der Überschrift ""Vitalparameter:"" stehen. Format: [Parameter] [Wert] [Einheit], kommagetrennt.
 5. Globaler Fallback: Wenn das Transkript keinerlei klinische Untersuchungsergebnisse enthält, gib exakt und ausschließlich diesen Satz aus: ""Keine Untersuchungsergebnisse dokumentiert.""
 </formatierungs_regeln>";
-        }
-
-        private static string GetDefaultBefundPromptNE()
-        {
-            return @"FACH-MODUL BEFUND: NEUROLOGIE
-
-Erstelle aus dem Transkript den neurologischen Untersuchungsbefund. Dokumentiere ausschließlich im Gespräch genannte oder durchgeführte Untersuchungen. Erfinde keine Befunde hinzu.
-
-Formatierung: Für jedes geprüfte neurologische System einen Block. Überschrift: ""[System]:"". Darunter die Einzelbefunde, durch Komma getrennt, Block mit Punkt abschließen. Leerzeile zwischen verschiedenen System-Blöcken. Seitenvergleich dokumentieren wo relevant (re./li./bds.).
-
-Vitalparameter:
-Wenn genannt: RR [Wert] mmHg, Puls [Wert]/min, Temperatur [Wert] Grad C.
-
-Relevante neurologische Untersuchungssysteme (nur dokumentieren wenn geprüft):
-
-Bewusstsein und Orientierung:
-Vigilanz (wach, somnolent, soporös, komatös), Orientierung (zeitlich, örtlich, situativ, zur Person), GCS sofern erhoben.
-
-Hirnnerven:
-I: Riechprüfung.
-II: Visus orientierend, Gesichtsfeld (Fingerperimetrie), Pupillen (isokor/anisokor, Weite, direkte/konsensuelle Lichtreaktion, Konvergenz).
-III/IV/VI: Augenmotilität (Blickfolge, Doppelbilder, Nystagmus: Richtung, erschöpflich/nicht erschöpflich).
-V: Sensibilität Gesicht (alle drei Äste), Masseterreflex, Kornealreflex.
-VII: Mimische Muskulatur (Stirnrunzeln, Lidschluss, Nasolabialfalte, Zähnezeigen), Geschmack vordere 2/3 der Zunge sofern geprüft.
-VIII: Hörprüfung orientierend (Fingerreiben), Weber, Rinne sofern durchgeführt.
-IX/X: Gaumensegelinnervation, Würgereflex, Schluckakt.
-XI: Kopfwendung, Schulterhebung (M. trapezius, M. sternocleidomastoideus).
-XII: Zungenmotilität (Deviation, Atrophie, Faszikulationen).
-
-Motorik:
-Kraftgrade nach MRC (0-5) pro Kennmuskel oder Muskelgruppe, Seitenvergleich. Muskeltonus (normoton, spastisch, rigide, schlaff). Trophik (Atrophie, Faszikulationen).
-
-Sensibilität:
-Berührung (Pallästhesie, Graphästhesie), Schmerz (Spitz-Stumpf-Diskrimination), Temperatur, Vibration (Stimmgabel mit Wertangabe /8), Lagesinn. Angabe der betroffenen Dermatome oder Verteilung (strumpf-/handschuhförmig, halbseitig, dissoziiert).
-
-Reflexe:
-Muskeleigenreflexe: BSR, TSR, RPR, PSR, ASR (Seitenvergleich, Abschwächung/Steigerung/Kloni). Pathologische Reflexe: Babinski, Gordon, Oppenheim, Troemner.
-
-Koordination:
-Finger-Nase-Versuch, Knie-Hacke-Versuch, Dysdiadochokinese, Rebound-Phänomen, Romberg-Stehversuch, Unterberger-Tretversuch.
-
-Gang:
-Gangbild (normal, breitbasig, kleinschrittig, ataktisch, spastisch, hinkend), Seiltänzergang, Einbeinstand, Fersengang, Zehenspitzengang.
-
-Sprache und Kognition:
-Dysarthrie, Aphasie (Typ sofern differenzierbar), Neglect, Apraxie, orientierende kognitive Prüfung (MMSE, MoCA, Uhrentest) mit Ergebnis sofern durchgeführt.
-
-Meningismus:
-Nackensteife, Brudzinski, Kernig, Lasegue sofern geprüft.
-
-Fallback (wenn keine Untersuchung stattfand):
-""Keine Untersuchungsergebnisse dokumentiert.""";
         }
 
         internal static string GetDefaultDiagnosenPrompt(string fachrichtung = "Allgemeinmedizin", bool includeIcd10 = true)
@@ -697,7 +719,269 @@ Oberste Direktive: Nur Diagnosen ableiten, die sich aus den vorliegenden Informa
 
         private static string GetDefaultSectionBe() => GetDefaultBefundPromptAM();
         private static string GetDefaultSectionN() => GetDefaultDiagnosenPrompt("Allgemeinmedizin");
-        private static string GetDefaultSectionT() => string.Empty;
+        private static string GetDefaultSectionT() => GetDefaultTherapiePromptAM();
+
+        internal static string GetDefaultTherapiePromptAM()
+        {
+            return @"FACH-MODUL THERAPIE: ALLGEMEINMEDIZIN
+
+<system_instruktion>
+Extrahiere aus dem Transkript alle vom Arzt genannten oder mit dem Patienten besprochenen therapeutischen Maßnahmen, Empfehlungen und Verordnungen.
+Dokumentiere nur explizit genannte Maßnahmen. Keine eigenen Therapievorschläge generieren.
+</system_instruktion>
+
+<formatierungs_regeln>
+1. Ausgabe-Format: Reiner Text, kein Markdown. Stichpunktartige Auflistung, eine Maßnahme pro Zeile.
+2. Kategorien (nur aufführen, wenn im Gespräch thematisiert):
+   - Medikation (neue Verordnungen, Dosisänderungen, Absetzungen; Format: [Medikament] [Dosierung], [Schema/Dauer])
+   - Nicht-medikamentöse Therapie (Physiotherapie, Krankengymnastik, Ergotherapie, Logopädie, Reha)
+   - Diagnostik (Überweisung, Labor, Bildgebung, Konsiliaruntersuchung)
+   - Hilfsmittel (Orthesen, Bandagen, Einlagen, Gehhilfen)
+   - Beratung (Verhaltensempfehlungen, Ernährung, Bewegung, Nikotinkarenz)
+   - Arbeitsunfähigkeit (Dauer falls genannt)
+   - Wiedervorstellung (Termin/Intervall falls genannt)
+3. Globaler Fallback: Wenn keine therapeutischen Maßnahmen im Gespräch dokumentiert sind, gib exakt aus: ""Keine Therapiemaßnahmen dokumentiert.""
+</formatierungs_regeln>";
+        }
+
+        private static string GetDefaultTherapiePromptOR()
+        {
+            return @"FACH-MODUL THERAPIE: ORTHOPÄDIE
+
+<system_instruktion>
+Extrahiere aus dem Transkript alle vom Arzt genannten oder mit dem Patienten besprochenen therapeutischen Maßnahmen, Empfehlungen und Verordnungen.
+Dokumentiere nur explizit genannte Maßnahmen. Keine eigenen Therapievorschläge generieren.
+</system_instruktion>
+
+<formatierungs_regeln>
+1. Ausgabe-Format: Reiner Text, kein Markdown. Stichpunktartige Auflistung, eine Maßnahme pro Zeile.
+2. Kategorien (nur aufführen, wenn im Gespräch thematisiert):
+   - Medikation (NSAR, Analgetika, Muskelrelaxantien, Cortison-Infiltrationen; Format: [Medikament] [Dosierung], [Schema/Dauer])
+   - Physikalische Therapie (Krankengymnastik, manuelle Therapie, Elektrotherapie, Wärme-/Kältetherapie, Reha)
+   - Hilfsmittel (Orthesen, Bandagen, Einlagen, Schienen, Gehhilfen, Pufferabsatz)
+   - Operative Maßnahmen (OP-Aufklärung, geplanter Eingriff, Arthroskopie, Gelenkersatz)
+   - Diagnostik (Bildgebung, MRT, Röntgen, Überweisung, Konsiliaruntersuchung)
+   - Belastungsempfehlung (Sportpause, Teilbelastung, Vollbelastung, Schonung)
+   - Arbeitsunfähigkeit (Dauer falls genannt)
+   - Wiedervorstellung (Termin/Intervall falls genannt)
+3. Globaler Fallback: Wenn keine therapeutischen Maßnahmen im Gespräch dokumentiert sind, gib exakt aus: ""Keine Therapiemaßnahmen dokumentiert.""
+</formatierungs_regeln>";
+        }
+
+        // -----------------------------------------------------------------------
+        // Diktat-Prompts – direkte ärztliche Diktat-Eingabe in eine Karte
+        // -----------------------------------------------------------------------
+
+        /// <summary>Gibt den Diktat-Sektions-Prompt zurück: formular- und sektionsspezifisch.
+        /// Fallback auf den Allgemeinmedizin-Prompt wenn das Formular unbekannt ist.</summary>
+        public static string GetDictationSectionPrompt(string? formId, string section)
+        {
+            bool isOrthopaedie = string.Equals(formId, "orthopaedie", StringComparison.OrdinalIgnoreCase);
+
+            return section switch
+            {
+                "A"  => isOrthopaedie ? GetDictationAnamnesePromptOR() : GetDictationAnamnesePromptAM(),
+                "Be" => isOrthopaedie ? GetDictationBefundPromptOR()   : GetDictationBefundPromptAM(),
+                "T"  => isOrthopaedie ? GetDictationTherapiePromptOR() : GetDictationTherapiePromptAM(),
+                "N"  => isOrthopaedie ? GetDictationDiagnosenPromptOR() : GetDictationDiagnosenPromptAM(),
+                _    => string.Empty
+            };
+        }
+
+        private static string GetDictationAnamnesePromptAM()
+        {
+            return @"DIKTAT-MODUL ANAMNESE: ALLGEMEINMEDIZIN
+
+<system_instruktion>
+Ein Arzt diktiert direkt. Strukturiere das Diktat als Anamnese-Eintrag.
+Wende Nominalstil oder sehr kurze, objektive Sätze an.
+Keine Informationen ergänzen oder erfinden.
+</system_instruktion>
+
+<formatierungs_regeln>
+1. Ausgabe-Format: Reiner Text, kein Markdown.
+2. Platzhalter-Logik: Ersetze [...] durch das Diktierte. Nicht diktierte Felder: ""k. A."". Explizit verneintes: ""keine"" bzw. ""keine bekannt"".
+3. Ausnahme Vegetative Anamnese: Wenn nicht diktiert, Kategorie inkl. Überschrift komplett weglassen.
+4. Ausnahme Sozialanamnese: Wenn diktiert aber unauffällig: ""Sozialanamnese unauffällig.""
+5. Format Dauermedikation: Eine Zeile pro Medikament. Format: [Name] [Dosierung], [Schema X-X-X]. Nur diktierte Angaben – fehlende Dosierung/Schema nicht mit ""k. A."" auffüllen.
+6. Format Allergien: [Auslöser] - [Reaktionstyp].
+</formatierungs_regeln>
+
+<ausgabe_template>
+Aktuell:
+[Zusammenfassung: Lokalisation, Charakter, Dauer, Auslöser, zeitlicher Verlauf, Begleitsymptome, Selbstmedikation/Akutbehandlung]
+Nebendiagnosen / Vorerkrankungen: [Kommagetrennte Liste: chronische Erkrankungen, relevante Vordiagnosen, Operationen, familiäre Belastung]
+Dauermedikation: [Medikament A] [Dosierung], [Schema]; [Medikament B] [Dosierung], [Schema];
+Allergien / Unverträglichkeiten: [Auslöser] - [Reaktionstyp]
+Vegetative Anamnese: [Angaben zu B-Symptomatik (Fieber, Nachtschweiß, Gewichtsveränderung), Appetit, Schlaf, Miktion, Stuhlgang]
+Sozialanamnese: [Beruf inkl. Belastung, sportliche Aktivität, häusliche Situation, Pflegebedarf, Nikotinkonsum, Alkoholkonsum]
+</ausgabe_template>";
+        }
+
+        private static string GetDictationAnamnesePromptOR()
+        {
+            return @"DIKTAT-MODUL ANAMNESE: ORTHOPÄDIE
+
+<system_instruktion>
+Ein Arzt diktiert direkt. Strukturiere das Diktat als orthopädischen Anamnese-Eintrag.
+Wende Nominalstil oder sehr kurze, objektive Sätze an.
+Keine Informationen ergänzen oder erfinden.
+</system_instruktion>
+
+<formatierungs_regeln>
+1. Ausgabe-Format: Reiner Text, kein Markdown.
+2. Platzhalter-Logik: Ersetze [...] durch das Diktierte. Nicht diktierte Felder: ""k. A."". Explizit verneintes: ""keine"" bzw. ""keine bekannt"".
+3. Ausnahme Vegetative Anamnese: Wenn nicht diktiert, Kategorie inkl. Überschrift komplett weglassen.
+4. Ausnahme Sozialanamnese: Wenn diktiert aber unauffällig: ""Sozialanamnese unauffällig.""
+5. Format Dauermedikation: Eine Zeile pro Medikament. Format: [Name] [Dosierung], [Schema X-X-X]. Nur diktierte Angaben – fehlende Dosierung/Schema nicht mit ""k. A."" auffüllen.
+6. Format Allergien: [Auslöser] - [Reaktionstyp].
+</formatierungs_regeln>
+
+<ausgabe_template>
+Aktuell:
+[Zusammenfassung: Lokalisation, Seitenangabe, Ausstrahlung, Charakter, Auslöser, zeitlicher Verlauf, Begleitsymptome, Selbstmedikation/bisherige Behandlung]
+Nebendiagnosen / Vorerkrankungen: [Kommagetrennte Liste: Orthopädische Voroperationen, Frakturen, bekannte degenerative Veränderungen, rheumatologische Grunderkrankungen, sonstige relevante Begleitdiagnosen]
+Dauermedikation: [Medikamentenname] [Dosierung], [Schema]; [Medikamentenname] [Dosierung], [Schema];
+Allergien / Unverträglichkeiten: [Auslöser] - [Reaktionstyp]
+Vegetative Anamnese: [Schlafstörungen durch Schmerzen, B-Symptomatik (Fieber, Nachtschweiß, Gewichtsveränderung)]
+Sozialanamnese: [Beruf inkl. körperlicher Belastung, sportliche Aktivität, häusliche Situation, Pflegebedarf, Nikotinkonsum, Alkoholkonsum]
+</ausgabe_template>";
+        }
+
+        private static string GetDictationBefundPromptAM()
+        {
+            return @"DIKTAT-MODUL BEFUND: ALLGEMEINMEDIZIN
+
+<system_instruktion>
+Ein Arzt diktiert direkt Untersuchungsbefunde. Strukturiere das Diktat als klinischen Befundeintrag.
+Oberste Direktive: Nur explizit diktierte Befunde dokumentieren. Nichts ergänzen oder erfinden.
+Diktierte Negativbefunde (z.B. ""kein Druckschmerz"") werden dokumentiert.
+</system_instruktion>
+
+<formatierungs_regeln>
+1. Ausgabe-Format: Reiner Text, kein Markdown.
+2. Dynamische Blöcke: Einen Block pro Organsystem, nur wenn tatsächlich diktiert.
+3. Struktur pro Block: [Organsystem] [Seitenangabe, falls zutreffend]: [Einzelbefunde durch Komma getrennt]. Jeden Block mit Punkt abschließen.
+4. Vitalparameter: Wenn diktiert, als allerersten Block unter ""Vitalparameter:"" ausgeben. Format: [Parameter] [Wert] [Einheit], kommagetrennt.
+5. Globaler Fallback: Wenn kein Befund diktiert wurde: ""Keine Untersuchungsergebnisse dokumentiert.""
+</formatierungs_regeln>";
+        }
+
+        private static string GetDictationBefundPromptOR()
+        {
+            return @"DIKTAT-MODUL BEFUND: ORTHOPÄDIE
+
+<system_instruktion>
+Ein Arzt diktiert direkt orthopädische Untersuchungsbefunde. Strukturiere das Diktat als klinischen Befundeintrag.
+Oberste Direktive: Nur explizit diktierte Befunde dokumentieren. Nichts ergänzen oder erfinden.
+Diktierte Negativbefunde (z.B. ""Lachman-Test negativ"", ""kein Erguss"") werden dokumentiert. Testbezeichnungen wörtlich übernehmen.
+</system_instruktion>
+
+<formatierungs_regeln>
+1. Ausgabe-Format: Reiner Text, kein Markdown.
+2. Dynamische Blöcke: Einen Block pro anatomischer Region, nur wenn tatsächlich diktiert.
+3. Struktur pro Block: [Region] [re./li./bds.]: [Einzelbefunde durch Komma getrennt]. Jeden Block mit Punkt abschließen.
+4. Vitalparameter: Wenn diktiert, als allerersten Block unter ""Vitalparameter:"" ausgeben. Format: [Parameter] [Wert] [Einheit], kommagetrennt.
+5. Globaler Fallback: Wenn kein Befund diktiert wurde: ""Keine Untersuchungsergebnisse dokumentiert.""
+</formatierungs_regeln>";
+        }
+
+        private static string GetDictationTherapiePromptAM()
+        {
+            return @"DIKTAT-MODUL THERAPIE: ALLGEMEINMEDIZIN
+
+<system_instruktion>
+Ein Arzt diktiert direkt therapeutische Maßnahmen. Strukturiere das Diktat als Therapie-Eintrag.
+Nur explizit diktierte Maßnahmen dokumentieren. Keine eigenen Therapievorschläge generieren.
+</system_instruktion>
+
+<formatierungs_regeln>
+1. Ausgabe-Format: Reiner Text, kein Markdown. Stichpunktartige Auflistung, eine Maßnahme pro Zeile.
+2. Kategorien (nur aufführen, wenn diktiert):
+   - Medikation (neue Verordnungen, Dosisänderungen, Absetzungen; Format: [Medikament] [Dosierung], [Schema/Dauer])
+   - Nicht-medikamentöse Therapie (Physiotherapie, Krankengymnastik, Ergotherapie, Logopädie, Reha)
+   - Diagnostik (Überweisung, Labor, Bildgebung, Konsiliaruntersuchung)
+   - Hilfsmittel (Orthesen, Bandagen, Einlagen, Gehhilfen)
+   - Beratung (Verhaltensempfehlungen, Ernährung, Bewegung, Nikotinkarenz)
+   - Arbeitsunfähigkeit (Dauer falls genannt)
+   - Wiedervorstellung (Termin/Intervall falls genannt)
+3. Globaler Fallback: Wenn nichts diktiert wurde: ""Keine Therapiemaßnahmen dokumentiert.""
+</formatierungs_regeln>";
+        }
+
+        private static string GetDictationTherapiePromptOR()
+        {
+            return @"DIKTAT-MODUL THERAPIE: ORTHOPÄDIE
+
+<system_instruktion>
+Ein Arzt diktiert direkt orthopädische Therapiemaßnahmen. Strukturiere das Diktat als Therapie-Eintrag.
+Nur explizit diktierte Maßnahmen dokumentieren. Keine eigenen Therapievorschläge generieren.
+</system_instruktion>
+
+<formatierungs_regeln>
+1. Ausgabe-Format: Reiner Text, kein Markdown. Stichpunktartige Auflistung, eine Maßnahme pro Zeile.
+2. Kategorien (nur aufführen, wenn diktiert):
+   - Medikation (NSAR, Analgetika, Muskelrelaxantien, Cortison-Infiltrationen; Format: [Medikament] [Dosierung], [Schema/Dauer])
+   - Physikalische Therapie (Krankengymnastik, manuelle Therapie, Elektrotherapie, Wärme-/Kältetherapie, Reha)
+   - Hilfsmittel (Orthesen, Bandagen, Einlagen, Schienen, Gehhilfen, Pufferabsatz)
+   - Operative Maßnahmen (OP-Aufklärung, geplanter Eingriff, Arthroskopie, Gelenkersatz)
+   - Diagnostik (Bildgebung, MRT, Röntgen, Überweisung, Konsiliaruntersuchung)
+   - Belastungsempfehlung (Sportpause, Teilbelastung, Vollbelastung, Schonung)
+   - Arbeitsunfähigkeit (Dauer falls genannt)
+   - Wiedervorstellung (Termin/Intervall falls genannt)
+3. Globaler Fallback: Wenn nichts diktiert wurde: ""Keine Therapiemaßnahmen dokumentiert.""
+</formatierungs_regeln>";
+        }
+
+        private static string GetDictationDiagnosenPromptAM()
+        {
+            string fachPrio = "Gesamtes ICD-10-Spektrum, häufig Kapitel I-XIV.";
+            return $@"DIKTAT-MODUL DIAGNOSEN: ALLGEMEINMEDIZIN
+
+<system_instruktion>
+Ein Arzt diktiert direkt Diagnosen. Strukturiere das Diktat als Diagnosen-Eintrag mit ICD-10-Codierung.
+Nur explizit diktierte Diagnosen dokumentieren. Keine spekulativen Diagnosen ergänzen.
+</system_instruktion>
+
+<formatierungs_regeln>
+1. Ausgabe-Format: Eine Diagnose pro Zeile gemäß <ausgabe_template>.
+2. Sortierung: Hauptdiagnose zuerst, dann Nebendiagnosen nach klinischer Relevanz absteigend.
+3. Diagnosesicherheit: Kennzeichne gemäß ICD-10-Kodierrichtlinien mit G (gesichert), V (Verdacht), A (Ausschluss) oder Z (Zustand nach).
+4. ICD-10-Spezifität: Höchste sinnvolle Spezifität (4- oder 5-stellig). Seitenkennzeichnung: R (rechts), L (links), B (beidseits).
+5. Fachspezifische Priorisierung: {fachPrio}
+6. Globaler Fallback: Wenn keine Diagnose diktiert: ""Keine Diagnose aus den vorliegenden Informationen ableitbar.""
+</formatierungs_regeln>
+
+<ausgabe_template>
+[Diagnosetext] - [ICD-10-Code][Sicherheit]
+[Diagnosetext] - [ICD-10-Code][Sicherheit]
+</ausgabe_template>";
+        }
+
+        private static string GetDictationDiagnosenPromptOR()
+        {
+            string fachPrio = "Priorisiere M-Codes (Muskel-Skelett) und S/T-Codes (Verletzungen), ergänze Begleitdiagnosen aus anderen Kapiteln.";
+            return $@"DIKTAT-MODUL DIAGNOSEN: ORTHOPÄDIE
+
+<system_instruktion>
+Ein Arzt diktiert direkt orthopädische Diagnosen. Strukturiere das Diktat als Diagnosen-Eintrag mit ICD-10-Codierung.
+Nur explizit diktierte Diagnosen dokumentieren. Keine spekulativen Diagnosen ergänzen.
+</system_instruktion>
+
+<formatierungs_regeln>
+1. Ausgabe-Format: Eine Diagnose pro Zeile gemäß <ausgabe_template>.
+2. Sortierung: Hauptdiagnose zuerst, dann Nebendiagnosen nach klinischer Relevanz absteigend.
+3. Diagnosesicherheit: Kennzeichne gemäß ICD-10-Kodierrichtlinien mit G (gesichert), V (Verdacht), A (Ausschluss) oder Z (Zustand nach).
+4. ICD-10-Spezifität: Höchste sinnvolle Spezifität (4- oder 5-stellig). Seitenkennzeichnung: R (rechts), L (links), B (beidseits).
+5. Fachspezifische Priorisierung: {fachPrio}
+6. Globaler Fallback: Wenn keine Diagnose diktiert: ""Keine Diagnose aus den vorliegenden Informationen ableitbar.""
+</formatierungs_regeln>
+
+<ausgabe_template>
+[Diagnosetext] - [ICD-10-Code][Sicherheit]
+[Diagnosetext] - [ICD-10-Code][Sicherheit]
+</ausgabe_template>";
+        }
 
         /// <summary>Mode-specific prompt module (Neupatient / Kontrolltermin).</summary>
         public static string GetModePrompt(string recordingMode)
@@ -720,19 +1004,9 @@ Für die Anamnese gilt: Erfasse alle verfügbaren Informationen vollständig. Di
         {
             return @"Du bist ein präziser medizinischer Dokumentations-Assistent für Einträge in die Patientenakte.
 
-GLOBALE REGELN:
+Format: Reiner Text, kein Markdown. Alle Abschnitte in Reintext ohne Formatierungszeichen ausgeben.
 
 Sprache: Nutze durchgehend ärztliche Fachsprache. Verwende gängige medizinische Abkürzungen: re. (rechts), li. (links), bds. (beidseits), o.B. (ohne Befund), Z.n. (Zustand nach), V.a. (Verdacht auf), ED (Erstdiagnose), DD (Differentialdiagnose), ggf. (gegebenenfalls), bzgl. (bezüglich), ca. (circa), Pat. (Patient/in).
-
-Format: Nutze für den Inhalt reinen Text. Kein Markdown, keine Sternchen, kein Fettdruck. Keine automatischen Nummerierungen (1., 2., 3.).
-
-Marker-System: Trenne die Hauptabschnitte ausschließlich mit folgenden Markern. Schreibe keinen Text vor dem ersten Marker.
-**A** = Anamnese
-**Be** = Befund
-**N** = Diagnosen (inkl. ICD-10-Codes falls angefordert)
-Gib nur die Marker aus, die vom Nutzer angefordert wurden.
-
-Negativbefunde: Wenn eine Kategorie im Gespräch nicht thematisiert wurde, nutze den jeweils vorgesehenen Fallback-Satz. Erfinde niemals Informationen hinzu.
 
 Sprecher-Erkennung: Analysiere das Gesprächstranskript. Der Sprecher, der Fragen stellt, Anweisungen gibt oder Untersuchungen durchführt, ist der Arzt. Der andere Sprecher ist der Patient. Tausche die Rollen logisch, falls die Labels vertauscht erscheinen.";
         }
@@ -749,8 +1023,9 @@ Sprecher-Erkennung: Analysiere das Gesprächstranskript. Der Sprecher, der Frage
                     A = GetDefaultAnamnesePromptAM(),
                     Be = GetDefaultBefundPromptAM(),
                     N = GetDefaultDiagnosenPrompt("Allgemeinmedizin", includeIcd10: true),
-                    T = string.Empty,
-                    Icd10 = string.Empty
+                    T = GetDefaultTherapiePromptAM(),
+                    Icd10 = string.Empty,
+                    PromptVersion = CurrentPromptVersion
                 }
             };
         }
@@ -767,139 +1042,19 @@ Sprecher-Erkennung: Analysiere das Gesprächstranskript. Der Sprecher, der Frage
                     A = GetDefaultAnamnesePromptOR(),
                     Be = GetDefaultBefundPromptOR(),
                     N = GetDefaultDiagnosenPrompt("Orthopädie", includeIcd10: true),
-                    T = string.Empty,
-                    Icd10 = string.Empty
+                    T = GetDefaultTherapiePromptOR(),
+                    Icd10 = string.Empty,
+                    PromptVersion = CurrentPromptVersion
                 }
             };
         }
 
-        private static SubjectForm CreateDefaultNeurologieForm()
-        {
-            return new SubjectForm
-            {
-                Id = "neurologie",
-                DisplayName = "Neurologie",
-                Description = "Standard-ABeNT für neurologische Befunde.",
-                SectionPrompts = new AbentSectionPrompts
-                {
-                    A = GetDefaultAnamnesePromptNE(),
-                    Be = GetDefaultBefundPromptNE(),
-                    N = GetDefaultDiagnosenPrompt("Neurologie", includeIcd10: true),
-                    T = string.Empty,
-                    Icd10 = string.Empty
-                }
-            };
-        }
-
-        private static SubjectForm CreateDefaultEchokardiographieForm()
-        {
-            return new SubjectForm
-            {
-                Id = "echokardiographie",
-                DisplayName = "Echokardiographie",
-                Description = "Befundbericht für transthorakale/transösophageale Echokardiographie (kein Anamnese-Block).",
-                SectionPrompts = new AbentSectionPrompts
-                {
-                    A = string.Empty,
-                    Be = GetDefaultBefundPromptEcho(),
-                    N = GetDefaultDiagnosenPromptEcho(includeIcd10: true),
-                    T = string.Empty,
-                    Icd10 = string.Empty
-                }
-            };
-        }
-
-        private static string GetDefaultBefundPromptEcho()
-        {
-            return @"FACH-MODUL BEFUND: ECHOKARDIOGRAPHIE
-
-Erstelle aus dem Transkript einen strukturierten echokardiographischen Befundbericht. Dokumentiere ausschließlich im Gespräch genannte oder diktierte Messwerte und Beurteilungen. Erfinde keine Befunde hinzu.
-
-Formatierung: Für jede untersuchte Struktur einen Block. Überschrift als eigene Zeile, darunter die Einzelbefunde durch Komma getrennt, Block mit Punkt abschließen. Leerzeile zwischen verschiedenen Struktur-Blöcken.
-
-Bildqualität:
-Wenn kommentiert: Beurteilung der Schallbedingungen (gut/eingeschränkt/schlecht), ggf. Grund (Adipositas, Emphysem, Lagerung).
-
-Linker Ventrikel (LV):
-Dimensionen (LVEDD, LVESD in mm), Wanddicken (IVSd, LVPWd in mm), LV-Masse/Index sofern angegeben. Wandbewegungsanalyse: global normokinetisch oder regionale Wandbewegungsstörungen (Segmentzuordnung nach 16/17-Segment-Modell sofern genannt). Systolische Funktion: LVEF (Simpson biplan, ggf. visuell geschätzt), GLS sofern gemessen. Diastolische Funktion: E/A-Verhältnis, E/e' (septal, lateral, Mittelwert), Dezelerationszeit, LAVI, Trikuspidalinsuffizienz-Geschwindigkeit, Einteilung Grad I-III sofern möglich.
-
-Rechter Ventrikel (RV):
-Dimensionen (RVEDD, RV basaler Durchmesser), TAPSE, S' (Gewebedoppler), FAC sofern gemessen. RV-Funktion: normal/eingeschränkt.
-
-Vorhöfe:
-LA-Diameter (parasternal), LA-Volumenindex (LAVI), RA-Fläche/Volumen sofern angegeben.
-
-Aortenklappe (AV):
-Morphologie (trikuspidalisch/bikuspidalisch, Verkalkungsgrad), Öffnungsverhalten. Bei Stenose: Vmax, mittlerer Gradient, KÖF (Kontinuitätsgleichung), Dimensionsloser Index. Bei Insuffizienz: Grad (I-III), Jet-Richtung, Vena contracta, PISA sofern gemessen.
-
-Mitralklappe (MV):
-Morphologie (Segel, Anulus), Bewegungsmuster. Bei Insuffizienz: Grad (I-III), Jet-Richtung, Vena contracta, EROA, Regurgitationsvolumen sofern gemessen. Bei Stenose: MÖF (PHT, Planimetrie), mittlerer Gradient.
-
-Trikuspidalklappe (TV):
-Morphologie. Bei Insuffizienz: Grad, Vmax (zur Abschätzung des sPAP), geschätzter sPAP (= 4 x Vmax² + RAP).
-
-Pulmonalklappe (PV):
-AT (Akzelerationszeit), sofern untersucht. Insuffizienz: Grad, sofern vorhanden.
-
-Perikard:
-Erguss (keiner/gering/moderat/ausgeprägt), Lokalisation, diastolische Kompression von RA/RV sofern beurteilbar.
-
-Aorta:
-Aortenwurzel-Diameter, Aorta ascendens-Diameter sofern gemessen.
-
-Vena cava inferior (VCI):
-Durchmesser, Atemvariabilität (>50% / <50%), geschätzter RAP.
-
-Fallback (wenn keine Untersuchung stattfand):
-""Keine echokardiographischen Befunde dokumentiert.""";
-        }
-
-        private static string GetDefaultDiagnosenPromptEcho(bool includeIcd10 = true)
-        {
-            if (!includeIcd10)
-            {
-                return @"FACH-MODUL DIAGNOSEN: ECHOKARDIOGRAPHIE
-
-<system_instruktion>
-Leite aus dem dokumentierten echokardiographischen Befund die Beurteilung ab.
-Oberste Direktive: Nur Befunde ableiten, die sich aus den vorliegenden Informationen begründen lassen.
-</system_instruktion>
-
-<formatierungs_regeln>
-1. Ausgabe-Format: Eine Beurteilung pro Zeile.
-2. Sortierung: Hauptbefund zuerst, dann Nebenbefunde nach klinischer Relevanz absteigend.
-3. Sicherheitsgrad: Gesicherter Befund nur als Text (z.B. ""Mitralinsuffizienz Grad II""). Verdacht mit Präfix ""V.a.""
-4. Normalbefund: ""Strukturell und funktionell unauffälliges Echokardiogramm"" wenn alle Parameter normwertig.
-5. Globaler Fallback: ""Keine Beurteilung aus den vorliegenden Informationen ableitbar.""
-</formatierungs_regeln>";
-            }
-
-            return @"FACH-MODUL DIAGNOSEN: ECHOKARDIOGRAPHIE
-
-<system_instruktion>
-Leite aus dem dokumentierten echokardiographischen Befund die Beurteilung ab und ordne jeder Diagnose den passenden ICD-10-GM-Code zu.
-Oberste Direktive: Nur Befunde ableiten, die sich aus den vorliegenden Informationen begründen lassen.
-</system_instruktion>
-
-<formatierungs_regeln>
-1. Ausgabe-Format: Eine Beurteilung pro Zeile gemäß <ausgabe_template>.
-2. Sortierung: Hauptbefund zuerst, dann Nebenbefunde nach klinischer Relevanz absteigend.
-3. Diagnosesicherheit: G (gesichert), V (Verdacht), A (Ausschluss), Z (Zustand nach).
-4. ICD-10-Priorisierung: I-Codes (Herz-Kreislauf), insbesondere I05-I09, I34-I37, I42, I50, I31.
-5. Normalbefund: Bei unauffälligem Befund ""Strukturell und funktionell unauffälliges Echokardiogramm"" – optional mit Z01.7 (diagnostische Untersuchung) wenn alle Parameter normwertig.
-6. Globaler Fallback: ""Keine Beurteilung aus den vorliegenden Informationen ableitbar.""
-</formatierungs_regeln>
-
-<ausgabe_template>
-[Diagnosetext] - [ICD-10-Code][Sicherheit]
-[Diagnosetext] - [ICD-10-Code][Sicherheit]
-</ausgabe_template>";
-        }
-
-        /// <summary>Für app-config.json (nur UniversalPrompt).</summary>
+        /// <summary>Für app-config.json: Universal-Prompt mit Standard/User-Trennung.</summary>
         private class AppConfig
         {
             public string UniversalPrompt { get; set; } = string.Empty;
+            public bool UniversalPromptCustomized { get; set; }
+            public int UniversalPromptVersion { get; set; }
         }
     }
 }

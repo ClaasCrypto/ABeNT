@@ -7,7 +7,6 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Threading;
 using ABeNT.Model;
 using ABeNT.Services;
 using ABeNT.ViewModel;
@@ -36,7 +35,10 @@ namespace ABeNT
         {
             var settings = SettingsService.LoadSettings();
             ChkBefund.IsChecked = settings.IncludeBefund;
+            ChkDiagnosen.IsChecked = settings.IncludeDiagnosen;
             ChkIcd10.IsChecked = settings.SuggestIcd10;
+            ChkIcd10.IsEnabled = settings.IncludeDiagnosen;
+            ChkTherapie.IsChecked = settings.IncludeTherapie;
             LoadSubjectForms();
             LoadDocumentations();
             UpdateKeyStatus();
@@ -47,7 +49,11 @@ namespace ABeNT
         {
             var settings = SettingsService.LoadSettings();
             settings.IncludeBefund = ChkBefund.IsChecked ?? false;
+            settings.IncludeDiagnosen = ChkDiagnosen.IsChecked ?? false;
             settings.SuggestIcd10 = ChkIcd10.IsChecked ?? false;
+            settings.IncludeTherapie = ChkTherapie.IsChecked ?? false;
+            ChkIcd10.IsEnabled = settings.IncludeDiagnosen;
+            if (!settings.IncludeDiagnosen) ChkIcd10.IsChecked = false;
             SettingsService.SaveSettings(settings);
             UpdateTokenEstimate();
         }
@@ -59,15 +65,17 @@ namespace ABeNT
             {
                 var formId = (CmbSubjectForm.SelectedItem as Model.SubjectForm)?.Id;
                 bool includeBefund = ChkBefund.IsChecked ?? false;
+                bool includeDiagnosen = ChkDiagnosen.IsChecked ?? false;
                 bool includeIcd10 = ChkIcd10.IsChecked ?? false;
+                bool includeTherapie = ChkTherapie.IsChecked ?? false;
 
                 string fullPrompt = OutputFormsService.BuildSystemPromptFromConfig(
-                    formId, "Neutral", true, false, true, "Neupatient");
-                int fullTotal = RoundToNearest(fullPrompt.Length / 4 + EstimateOutputTokens(true, true), 50);
+                    formId, "Neutral", true, true, true, true, "Neupatient");
+                int fullTotal = RoundToNearest(fullPrompt.Length / 4 + EstimateOutputTokens(true, true, true, true), 50);
 
                 string currentPrompt = OutputFormsService.BuildSystemPromptFromConfig(
-                    formId, "Neutral", includeBefund, false, includeIcd10, "Neupatient");
-                int currentTotal = RoundToNearest(currentPrompt.Length / 4 + EstimateOutputTokens(includeBefund, includeIcd10), 50);
+                    formId, "Neutral", includeBefund, includeDiagnosen, includeTherapie, includeIcd10, "Neupatient");
+                int currentTotal = RoundToNearest(currentPrompt.Length / 4 + EstimateOutputTokens(includeBefund, includeDiagnosen, includeIcd10, includeTherapie), 50);
 
                 int saved = fullTotal - currentTotal;
                 TxtTokenEstimate.Text = saved > 0
@@ -80,11 +88,12 @@ namespace ABeNT
             }
         }
 
-        private static int EstimateOutputTokens(bool includeBefund, bool includeIcd10)
+        private static int EstimateOutputTokens(bool includeBefund, bool includeDiagnosen, bool includeIcd10, bool includeTherapie)
         {
             int tokens = 300; // Anamnese
             if (includeBefund) tokens += 250;
-            tokens += includeIcd10 ? 200 : 100;
+            if (includeDiagnosen) tokens += includeIcd10 ? 200 : 100;
+            if (includeTherapie) tokens += 150;
             return tokens;
         }
 
@@ -167,7 +176,8 @@ namespace ABeNT
                 MistralApiKey = settings.MistralApiKey ?? string.Empty,
                 Gender = "Neutral",
                 IncludeBefund = ChkBefund.IsChecked ?? false,
-                IncludeTherapie = false,
+                IncludeDiagnosen = ChkDiagnosen.IsChecked ?? false,
+                IncludeTherapie = ChkTherapie.IsChecked ?? false,
                 IncludeIcd10 = ChkIcd10.IsChecked ?? false,
                 FormId = (CmbSubjectForm.SelectedItem as Model.SubjectForm)?.Id
             };
@@ -399,77 +409,41 @@ namespace ABeNT
             TxtAnamnese.Text = "";
             TxtBefund.Text = "";
             TxtDiagnose.Text = "";
+            TxtTherapie.Text = "";
 
             if (string.IsNullOrWhiteSpace(fullText))
             {
                 return;
             }
 
-            var patternA = @"\*\*A\*\*\s*[-–]?\s*(.*?)(?=\*\*Be\*\*|\*\*N\*\*|\*\*T\*\*|$)";
-            var patternBe = @"\*\*Be\*\*\s*[-–]?\s*(.*?)(?=\*\*N\*\*|\*\*T\*\*|$)";
-            var patternN = @"\*\*N\*\*\s*[-–]?\s*(.*?)(?=\*\*T\*\*|$)";
+            var patternA = @"\[ABSCHNITT:A\]\s*(.*?)(?=\[ABSCHNITT:(?:Be|T|N)\]|$)";
+            var patternBe = @"\[ABSCHNITT:Be\]\s*(.*?)(?=\[ABSCHNITT:(?:T|N)\]|$)";
+            var patternT = @"\[ABSCHNITT:T\]\s*(.*?)(?=\[ABSCHNITT:N\]|$)";
+            var patternN = @"\[ABSCHNITT:N\]\s*(.*?)$";
 
             var matchA = Regex.Match(fullText, patternA, RegexOptions.Singleline | RegexOptions.IgnoreCase);
             if (matchA.Success && matchA.Groups.Count > 1)
             {
-                TxtAnamnese.Text = StripAnamneseHeaders(CleanText(matchA.Groups[1].Value));
+                TxtAnamnese.Text = matchA.Groups[1].Value.Trim();
             }
 
             var matchBe = Regex.Match(fullText, patternBe, RegexOptions.Singleline | RegexOptions.IgnoreCase);
             if (matchBe.Success && matchBe.Groups.Count > 1)
             {
-                TxtBefund.Text = CleanText(matchBe.Groups[1].Value);
+                TxtBefund.Text = matchBe.Groups[1].Value.Trim();
+            }
+
+            var matchT = Regex.Match(fullText, patternT, RegexOptions.Singleline | RegexOptions.IgnoreCase);
+            if (matchT.Success && matchT.Groups.Count > 1)
+            {
+                TxtTherapie.Text = matchT.Groups[1].Value.Trim();
             }
 
             var matchN = Regex.Match(fullText, patternN, RegexOptions.Singleline | RegexOptions.IgnoreCase);
             if (matchN.Success && matchN.Groups.Count > 1)
             {
-                TxtDiagnose.Text = CleanText(matchN.Groups[1].Value);
+                TxtDiagnose.Text = matchN.Groups[1].Value.Trim();
             }
-        }
-
-        private static string StripAnamneseHeaders(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text)) return text;
-            var lines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-            var result = new List<string>();
-            foreach (string line in lines)
-            {
-                string t = line.Trim();
-                if (string.Equals(t, "ANAMNESE", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                if (t.StartsWith("Jetziges Leiden:", StringComparison.OrdinalIgnoreCase))
-                {
-                    string rest = t.Substring("Jetziges Leiden:".Length).Trim();
-                    if (!string.IsNullOrEmpty(rest)) result.Add(rest);
-                    continue;
-                }
-                if (t.StartsWith("Aktuell:", StringComparison.OrdinalIgnoreCase))
-                {
-                    string rest = t.Substring("Aktuell:".Length).Trim();
-                    if (!string.IsNullOrEmpty(rest)) result.Add(rest);
-                    continue;
-                }
-                result.Add(line);
-            }
-            string joined = string.Join(Environment.NewLine, result).Trim();
-            joined = joined.TrimStart(':', ' ').TrimStart('\r', '\n');
-            return joined;
-        }
-
-        private string CleanText(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return "";
-            }
-
-            text = text.Trim();
-            // Mehrfache Leerzeichen/Tabs pro Zeile reduzieren, Zeilenumbrüche beibehalten (für Anamnese-Kurzansicht)
-            text = Regex.Replace(text, @"[ \t]+", " ");
-            // Mehrfache Zeilenumbrüche auf maximal zwei reduzieren
-            text = Regex.Replace(text, @"\n\s*\n\s*\n+", "\n\n");
-            return text;
         }
 
         private async void BtnCopyA_Click(object sender, RoutedEventArgs e)
@@ -485,6 +459,11 @@ namespace ABeNT
         private async void BtnCopyN_Click(object sender, RoutedEventArgs e)
         {
             await CopyToClipboardWithFeedback(TxtDiagnose.Text, BtnCopyN);
+        }
+
+        private async void BtnCopyT_Click(object sender, RoutedEventArgs e)
+        {
+            await CopyToClipboardWithFeedback(TxtTherapie.Text, BtnCopyT);
         }
 
         private async Task CopyToClipboardWithFeedback(string text, Button button)
@@ -514,6 +493,39 @@ namespace ABeNT
             {
                 MessageBox.Show($"Fehler beim Kopieren: {ex.Message}", 
                     "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        // ───── Diktat-Funktionen ─────
+
+        private void BtnDictateA_Click(object sender, RoutedEventArgs e) => OpenDictationWindow("A", TxtAnamnese);
+        private void BtnDictateBe_Click(object sender, RoutedEventArgs e) => OpenDictationWindow("Be", TxtBefund);
+        private void BtnDictateT_Click(object sender, RoutedEventArgs e) => OpenDictationWindow("T", TxtTherapie);
+        private void BtnDictateN_Click(object sender, RoutedEventArgs e) => OpenDictationWindow("N", TxtDiagnose);
+
+        private void OpenDictationWindow(string section, TextBox targetBox)
+        {
+            var formId = (CmbSubjectForm.SelectedItem as SubjectForm)?.Id;
+            var dlg = new DictationWindow
+            {
+                Owner = this,
+                Section = section,
+                FormId = formId
+            };
+
+            if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.ResultText))
+                return;
+
+            if (dlg.ShouldReplace)
+            {
+                targetBox.Text = dlg.ResultText;
+            }
+            else
+            {
+                string existing = targetBox.Text?.Trim() ?? string.Empty;
+                targetBox.Text = string.IsNullOrEmpty(existing)
+                    ? dlg.ResultText
+                    : $"{existing}\n{dlg.ResultText}";
             }
         }
 
