@@ -196,7 +196,8 @@ namespace ABeNT
 
         private void BtnManageForms_Click(object sender, RoutedEventArgs e)
         {
-            var formsWindow = new OutputFormsWindow { Owner = this };
+            var currentFormId = (CmbSubjectForm.SelectedItem as Model.SubjectForm)?.Id;
+            var formsWindow = new OutputFormsWindow(currentFormId) { Owner = this };
             formsWindow.ShowDialog();
             LoadSubjectForms();
         }

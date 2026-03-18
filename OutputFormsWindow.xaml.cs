@@ -15,9 +15,16 @@ namespace ABeNT
         private string? _editingFormId; // null = new form, not yet saved
         private string _loadedIcd10 = ""; // preserved for backward compat, not used when building prompt
         private readonly LlmService _llmService = new LlmService();
+        private readonly string? _initialFormId;
 
-        public OutputFormsWindow()
+        public OutputFormsWindow() : this(null)
         {
+        }
+
+        /// <param name="initialFormId">Formular-ID aus der Sprechstunde; wird beim Öffnen in der Liste selektiert.</param>
+        public OutputFormsWindow(string? initialFormId)
+        {
+            _initialFormId = string.IsNullOrWhiteSpace(initialFormId) ? null : initialFormId.Trim();
             InitializeComponent();
             Loaded += OutputFormsWindow_Loaded;
         }
@@ -25,6 +32,7 @@ namespace ABeNT
         private void OutputFormsWindow_Loaded(object sender, RoutedEventArgs e)
         {
             RefreshFormList();
+            SelectFormInList(_initialFormId);
         }
 
         private void RefreshFormList()
@@ -32,8 +40,32 @@ namespace ABeNT
             _forms = OutputFormsService.GetForms();
             LstForms.ItemsSource = null;
             LstForms.ItemsSource = _forms;
-            if (_forms.Count > 0 && LstForms.SelectedIndex < 0)
-                LstForms.SelectedIndex = 0;
+        }
+
+        /// <summary>Wählt das Formular mit der angegebenen Id; sonst den ersten Eintrag. Leere Liste → keine Auswahl.</summary>
+        private void SelectFormInList(string? formId)
+        {
+            if (_forms.Count == 0)
+            {
+                LstForms.SelectedIndex = -1;
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(formId))
+            {
+                int idx = _forms.FindIndex(f => string.Equals(f.Id, formId, StringComparison.OrdinalIgnoreCase));
+                if (idx >= 0)
+                {
+                    LstForms.SelectedIndex = idx;
+                    if (LstForms.SelectedItem != null)
+                        LstForms.ScrollIntoView(LstForms.SelectedItem);
+                    return;
+                }
+            }
+
+            LstForms.SelectedIndex = 0;
+            if (LstForms.SelectedItem != null)
+                LstForms.ScrollIntoView(LstForms.SelectedItem);
         }
 
         private void BtnUniversalPrompt_Click(object sender, RoutedEventArgs e)
@@ -141,11 +173,9 @@ namespace ABeNT
             try
             {
                 OutputFormsService.AddForm(newForm);
-                RefreshFormList();
-                var index = _forms.FindIndex(f => f.Id == newId);
-                if (index >= 0)
-                    LstForms.SelectedIndex = index;
                 _editingFormId = newId;
+                RefreshFormList();
+                SelectFormInList(newId);
                 PanelFormDetail.Visibility = Visibility.Visible;
                 BtnRemove.IsEnabled = true;
             }
@@ -169,6 +199,7 @@ namespace ABeNT
             {
                 OutputFormsService.RemoveForm(form.Id);
                 RefreshFormList();
+                LstForms.SelectedIndex = -1;
                 PanelFormDetail.Visibility = Visibility.Collapsed;
                 BtnRemove.IsEnabled = false;
             }
@@ -203,6 +234,7 @@ namespace ABeNT
                     UpdateSectionStatusIndicators(form);
                 }
                 RefreshFormList();
+                SelectFormInList(_editingFormId);
                 MessageBox.Show("Standard wiederhergestellt.", "Erfolg", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -258,26 +290,30 @@ namespace ABeNT
             try
             {
                 bool idChanged = _editingFormId != null && !string.Equals(_editingFormId, id, StringComparison.OrdinalIgnoreCase);
+                string successMessage;
                 if (_editingFormId == null || !_forms.Any(f => string.Equals(f.Id, _editingFormId, StringComparison.OrdinalIgnoreCase)))
                 {
                     OutputFormsService.AddForm(form);
-                    if (showSuccessMessage) MessageBox.Show("Formular hinzugefügt.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
+                    successMessage = "Formular hinzugefügt.";
                 }
                 else if (idChanged)
                 {
                     OutputFormsService.RemoveForm(_editingFormId);
                     OutputFormsService.AddForm(form);
-                    if (showSuccessMessage) MessageBox.Show("Formular umbenannt und gespeichert.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
+                    successMessage = "Formular umbenannt und gespeichert.";
                 }
                 else
                 {
                     OutputFormsService.UpdateForm(form);
-                    if (showSuccessMessage) MessageBox.Show("Formular gespeichert.", "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
+                    successMessage = "Formular gespeichert.";
                 }
+
                 _editingFormId = id;
                 RefreshFormList();
-                int idx = _forms.FindIndex(f => string.Equals(f.Id, id, StringComparison.OrdinalIgnoreCase));
-                if (idx >= 0) LstForms.SelectedIndex = idx;
+                SelectFormInList(id);
+
+                if (showSuccessMessage)
+                    MessageBox.Show(successMessage, "Gespeichert", MessageBoxButton.OK, MessageBoxImage.Information);
                 return true;
             }
             catch (Exception ex)

@@ -547,30 +547,47 @@ namespace ABeNT.Services
             return @"FACH-MODUL ANAMNESE: ALLGEMEINMEDIZIN
 
 <system_instruktion>
-Extrahiere aus dem folgenden Arzt-Patienten-Gespräch die Anamnese.
-Wende zwingend den Nominalstil oder sehr kurze, objektive Sätze an. Filtere Smalltalk und medizinisch irrelevante Gesprächsanteile rigoros heraus.
+Du bist ein medizinischer Dokumentationsassistent. Deine Aufgabe: Extrahiere aus dem folgenden Arzt-Patienten-Gespräch die allgemeinmedizinische Anamnese.
+
+Stilregeln:
+- Zwingend Nominalstil oder sehr kurze, objektive Sätze (z. B. ""Hustenangabe seit fünf Tagen, produktiv, gelblicher Auswurf"", nicht ""Der Patient hustet seit fünf Tagen und hat gelben Auswurf"").
+- Medizinisch irrelevante Gesprächsanteile (Smalltalk, Begrüßung, Verabschiedung) rigoros herausfiltern.
+- Keine eigenen Interpretationen, Diagnosen oder Ergänzungen hinzufügen – nur das wiedergeben, was im Gespräch tatsächlich gesagt wurde.
 </system_instruktion>
 
 <formatierungs_regeln>
-1. Ausgabe-Format: Reiner Text, kein Markdown.
-2. Platzhalter-Logik: Ersetze die Bereiche in den eckigen Klammern [...] durch die aus dem Transkript extrahierten Informationen. Die Parameter in den Klammern definieren den erwarteten Suchraum, sie dürfen nicht als fester Text übernommen werden, wenn das Transkript abweicht.
-3. Fallback-Regel (Global): Wenn eine Information im Transkript nicht thematisiert wird, trage exakt ""k. A."" ein. Wenn der Patient ein Symptom, eine Erkrankung oder Medikation explizit verneint, trage ""keine"" bzw. ""keine bekannt"" ein.
-4. Ausnahme Vegetative Anamnese: Wenn im Gespräch hierzu absolut keine Angaben gemacht wurden, lasse diese Kategorie (inklusive Überschrift) in der Endausgabe komplett weg.
-5. Ausnahme Sozialanamnese: Wenn besprochen, aber unauffällig, trage exakt ""Sozialanamnese unauffällig."" ein.
-6. Format Dauermedikation: Nutze für jedes Medikament einen neuen Listenpunkt. Format: [Medikamentenname] [Dosierung], [Schema ist zwingend im Format X-X-X (morgens-mittags-abends) oder X-X-X-X (morgens-mittags-abends-zur Nacht) anzugeben (z. B. 1-0-1 oder 0-0-0-1)]. Ausnahme zur Fallback-Regel: Nur die im Gespräch genannten Angaben ausgeben; fehlende Dosierung oder fehlendes Schema nicht mit ""k. A."" auffüllen – nur Medikamentenname bzw. Name und genannte Teile angeben.
-7. Format Allergien: Nutze das Format: [Auslöser] - [Reaktionstyp].
-8. Abgrenzung: Unter ""Nebendiagnosen / Vorerkrankungen"" keinen Verlauf und keine aktuelle Symptomatik aufführen – diese gehören unter ""Aktuell"".
+1. Ausgabe-Format: Reiner Text, kein Markdown (keine **, keine #, keine ``` usw.).
+2. Platzhalter-Logik: Die Begriffe in den runden Klammern im Template definieren den Suchraum – sie beschreiben, wonach zu suchen ist. Sie dürfen nicht als fester Text in die Ausgabe übernommen werden. Ersetze den gesamten Klammerausdruck durch die extrahierte Information.
+3. Nicht erfragt vs. verneint: Wurde ein Thema im Gespräch nicht angesprochen, schreibe ""nicht erfragt"". Wurde es aktiv verneint, schreibe die Verneinung (z. B. ""keine bekannt"", ""kein Nikotinkonsum""). Felder nie stillschweigend weglassen.
+4. Nebendiagnosen: Kommagetrennte Aufzählung. Unter ""Nebendiagnosen / Vorerkrankungen"" nur Diagnosen, Voroperationen, chronische Erkrankungen, familiäre Belastung und bekannte Vordiagnosen aufführen – keinen aktuellen Verlauf und keine aktuelle Symptomatik (diese gehören unter ""Aktuell"").
+5. Allergien: Format [Auslöser] – [Reaktionstyp]. Falls verneint: ""keine bekannt"". Falls nicht besprochen: ""nicht erfragt"".
+6. Sozialanamnese: Beruf (inkl. körperlicher Belastung, z. B. sitzende Tätigkeit, Schichtarbeit), Sport, häusliche Situation, Pflegebedarf, Alkohol (keiner / gelegentlich / regelmäßig), Nikotin (Nichtraucher / Raucher, ggf. Menge in pack years). Nicht erfragte Teilbereiche mit ""nicht erfragt"" kennzeichnen.
+7. Dauermedikation: Ein Listenpunkt je Medikament. Format: [Medikamentenname] [Dosierung], [Schema X-X-X oder X-X-X-X]. Nur die im Gespräch tatsächlich genannten Angaben ausgeben – fehlende Teile nicht ergänzen oder mit ""nicht erfragt"" auffüllen.
+
+   Beispiel:
+   Patient sagt: ""Ich nehme morgens eine Metformin 1000 und abends nochmal eine.""
+   Ausgabe:       - Metformin 1000 mg, 1-0-1
+
+   Patient sagt: ""Und dann noch was für die Schilddrüse, L-Thyroxin.""
+   Ausgabe:       - L-Thyroxin
+
+   Falls keine Dauermedikation: ""keine"". Falls nicht erfragt: ""nicht erfragt"".
+8. Vegetative Anamnese: Alle genannten Angaben dokumentieren. Nicht erfragte Teilbereiche mit ""nicht erfragt"" kennzeichnen. Falls der gesamte Bereich nicht zur Sprache kam: ""nicht erfragt"". Hinweis: Gewicht als Messwert gehört in die Vitalparameter, nicht hierher – nur subjektive Gewichtsveränderung dokumentieren.
 </formatierungs_regeln>
 
 <ausgabe_template>
-Aktuell:
-[Zusammenfassung: Lokalisation, Charakter, Dauer, Auslöser, zeitlicher Verlauf, Begleitsymptome, Selbstmedikation/Akutbehandlung]
-Nebendiagnosen / Vorerkrankungen: [Kommagetrennte Liste: chronische Erkrankungen, relevante Vordiagnosen, Operationen, familiäre Belastung]
-Dauermedikation: [Medikament A] [Dosierung], [Schema]; [Medikament B] [Dosierung], [Schema];
-Allergien / Unverträglichkeiten: [Auslöser] - [Reaktionstyp]
-Vegetative Anamnese: [Angaben zu B-Symptomatik (Fieber, Nachtschweiß, Gewichtsveränderung), Appetit, Schlaf, Miktion, Stuhlgang. Gewicht als Messwert gehört in die Vitalparameter, nicht hierher.]
-Sozialanamnese: [Beruf inkl. Belastung, sportliche Aktivität, häusliche Situation, Pflegebedarf, Nikotinkonsum, Alkoholkonsum]
-</ausgabe_template>";
+Aktuell: (Lokalisation, Charakter, Dauer, Auslöser, zeitlicher Verlauf, Begleitsymptome, Selbstmedikation/Akutbehandlung)
+Nebendiagnosen / Vorerkrankungen: (chronische Erkrankungen, relevante Vordiagnosen, Operationen, familiäre Belastung)
+Dauermedikation:
+- (ein Listenpunkt je Medikament)
+Allergien / Unverträglichkeiten: (Auslöser – Reaktionstyp)
+Vegetative Anamnese: (B-Symptomatik: Fieber, Nachtschweiß, Gewichtsveränderung; Appetit, Schlaf, Miktion, Stuhlgang)
+Sozialanamnese: (Beruf inkl. Belastung, sportliche Aktivität, häusliche Situation, Pflegebedarf, Nikotinkonsum, Alkoholkonsum)
+</ausgabe_template>
+
+<transkript>
+{{TRANSKRIPT HIER EINFÜGEN}}
+</transkript>";
         }
 
         private static string GetDefaultAnamnesePromptOR()
@@ -578,30 +595,47 @@ Sozialanamnese: [Beruf inkl. Belastung, sportliche Aktivität, häusliche Situat
             return @"FACH-MODUL ANAMNESE: ORTHOPÄDIE
 
 <system_instruktion>
-Extrahiere aus dem folgenden Arzt-Patienten-Gespräch die Anamnese.
-Wende zwingend den Nominalstil oder sehr kurze, objektive Sätze an. Extrahiere jedes medizinische Detail präzise, filtere Smalltalk und medizinisch irrelevante Gesprächsanteile jedoch rigoros heraus.
+Du bist ein medizinischer Dokumentationsassistent. Deine Aufgabe: Extrahiere aus dem folgenden Arzt-Patienten-Gespräch die orthopädische Anamnese.
+
+Stilregeln:
+- Zwingend Nominalstil (z. B. ""Schmerzangabe seit drei Wochen"", nicht ""Der Patient hat seit drei Wochen Schmerzen"").
+- Medizinisch irrelevante Gesprächsanteile (Smalltalk, Begrüßung, Verabschiedung) rigoros herausfiltern.
+- Keine eigenen Interpretationen, Diagnosen oder Ergänzungen hinzufügen – nur das wiedergeben, was im Gespräch tatsächlich gesagt wurde.
 </system_instruktion>
 
 <formatierungs_regeln>
-1. Ausgabe-Format: Reiner Text, kein Markdown.
-2. Platzhalter-Logik: Ersetze die Bereiche in den eckigen Klammern [...] durch die aus dem Transkript extrahierten Informationen. Die Parameter in den Klammern (z.B. stechend/ziehend/dumpf/brennend) definieren den erwarteten Suchraum, sie dürfen nicht als fester Text übernommen werden, wenn das Transkript abweicht.
-3. Fallback-Regel (Global): Wenn eine Information im Transkript nicht thematisiert wird, trage exakt ""k. A."" ein. Wenn der Patient eine Entität (Symptom, Vorerkrankung, Medikation, Allergie) explizit verneint, trage ""keine"" bzw. ""keine bekannt"" ein.
-4. Ausnahme Vegetative Anamnese: Wenn im Gespräch hierzu absolut keine Angaben gemacht wurden, lasse diese Kategorie (inklusive Überschrift) in der Endausgabe komplett weg.
-5. Ausnahme Sozialanamnese: Wenn besprochen, aber unauffällig, trage exakt ""Sozialanamnese unauffällig."" ein.
-6. Format Dauermedikation: Nutze für jedes Medikament einen neuen Listenpunkt. Format: [Medikamentenname] [Dosierung], [Schema ist zwingend im Format X-X-X (morgens-mittags-abends) oder X-X-X-X (morgens-mittags-abends-zur Nacht) anzugeben (z. B. 1-0-1 oder 0-0-0-1)]. Ausnahme zur Fallback-Regel: Nur die im Gespräch genannten Angaben ausgeben; fehlende Dosierung oder Einnahmeschema nicht mit ""k. A."" auffüllen – nur Medikamentenname bzw. Name und genannte Teile angeben.
-7. Format Allergien: Nutze das Format: [Auslöser] - [Reaktionstyp].
-8. Abgrenzung: Unter ""Nebendiagnosen / Vorerkrankungen"" keinen Verlauf und keine aktuelle Symptomatik aufführen – diese gehören unter ""Aktuell"".
+1. Ausgabe-Format: Reiner Text, kein Markdown (keine **, keine #, keine ``` usw.).
+2. Platzhalter-Logik: Die Begriffe in den runden Klammern im Template definieren den Suchraum – sie beschreiben, wonach zu suchen ist. Sie dürfen nicht als fester Text in die Ausgabe übernommen werden. Ersetze den gesamten Klammerausdruck durch die extrahierte Information.
+3. Nicht erfragt vs. verneint: Wurde ein Thema im Gespräch nicht angesprochen, schreibe ""nicht erfragt"". Wurde es aktiv verneint, schreibe die Verneinung (z. B. ""keine bekannt"", ""kein Nikotinkonsum""). Felder nie stillschweigend weglassen.
+4. Nebendiagnosen: Kommagetrennte Aufzählung. Unter ""Nebendiagnosen / Vorerkrankungen"" nur Diagnosen, Voroperationen, Frakturen und bekannte degenerative Veränderungen aufführen – keinen aktuellen Verlauf und keine aktuelle Symptomatik (diese gehören unter ""Aktuell"").
+5. Allergien: Kommagetrennte Liste. Falls verneint: ""keine bekannt"". Falls nicht besprochen: ""nicht erfragt"".
+6. Sozialanamnese: Beruf (inkl. körperlicher Belastung, z. B. Überkopfarbeit, sitzende Tätigkeit), Sport, Alkohol (keiner / gelegentlich / regelmäßig), Nikotin (Nichtraucher / Raucher, ggf. Menge). Nicht erfragte Teilbereiche mit ""nicht erfragt"" kennzeichnen.
+7. Dauermedikation: Ein Listenpunkt je Medikament. Format: [Medikamentenname] [Dosierung], [Schema X-X-X oder X-X-X-X]. Nur die im Gespräch tatsächlich genannten Angaben ausgeben – fehlende Teile nicht ergänzen oder mit ""k. A."" auffüllen.
+
+   Beispiel:
+   Patient sagt: ""Ich nehme morgens und abends Ibuprofen 600.""
+   Ausgabe:       - Ibuprofen 600 mg, 1-0-1
+
+   Patient sagt: ""Dann nehme ich noch so eine Blutdrucktablette, Ramipril glaube ich.""
+   Ausgabe:       - Ramipril
+
+   Falls keine Dauermedikation: ""keine"". Falls nicht erfragt: ""nicht erfragt"".
+8. Vegetative Anamnese: Nur aufführen, was im Gespräch tatsächlich angesprochen wurde. Nicht erfragte Teilbereiche mit ""nicht erfragt"" kennzeichnen. Falls der gesamte Bereich nicht zur Sprache kam: ""nicht erfragt"".
 </formatierungs_regeln>
 
 <ausgabe_template>
-Aktuell:
-[Zusammenfassung: Lokalisation, Seitenangabe, Ausstrahlung, Charakter, Auslöser, zeitlicher Verlauf, Begleitsymptome, Selbstmedikation/bisherige Behandlung]
-Nebendiagnosen / Vorerkrankungen: [Kommagetrennte Liste: Orthopädische Voroperationen, Frakturen, bekannte degenerative Veränderungen, rheumatologische Grunderkrankungen, sonstige relevante Begleitdiagnosen]
-Dauermedikation: [Medikamentenname] [Dosierung], [Einnahmeschema]; [Medikamentenname] [Dosierung], [Einnahmeschema];
-Allergien / Unverträglichkeiten: [Auslöser] - [Reaktionstyp]
-Vegetative Anamnese: [Angaben zu: Schlafstörungen durch Schmerzen, B-Symptomatik (Fieber, Nachtschweiß, Gewichtsveränderung). Gewicht als Messwert gehört in die Vitalparameter, nicht hierher.]
-Sozialanamnese: [Angaben zu: Beruf inkl. körperlicher Belastung/Überkopfarbeit/sitzender Tätigkeit, sportliche Aktivität, häusliche Situation, Pflegebedarf, Nikotinkonsum, Alkoholkonsum]
-</ausgabe_template>";
+Aktuell: (Lokalisation, Seitenangabe, Ausstrahlung, Charakter, Auslöser, zeitlicher Verlauf, Begleitsymptome, Selbstmedikation/bisherige Behandlung)
+Nebendiagnosen / Vorerkrankungen: (internistische oder andere chronische Erkrankungen, Voroperationen oder Frakturen, bekannte degenerative Veränderungen, sonstige relevante Begleitdiagnosen)
+Dauermedikation:
+- (ein Listenpunkt je Medikament)
+Allergien / Unverträglichkeiten: (Auslöser, Substanz)
+Vegetative Anamnese: (Schlaf, Verdauung, Miktion, B-Symptomatik)
+Sozialanamnese: (Beruf inkl. körperlicher Belastung, sportliche Aktivität, häusliche Situation, Pflegebedarf, Nikotinkonsum, Alkoholkonsum)
+</ausgabe_template>
+
+<transkript>
+{{TRANSKRIPT HIER EINFÜGEN}}
+</transkript>";
         }
 
         internal static string GetDefaultBefundPromptAM()
