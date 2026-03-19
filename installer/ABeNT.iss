@@ -56,8 +56,12 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
 begin
-  if CurStep = ssInstall then
+  if (CurStep = ssInstall) or (CurStep = ssUninstall) then
   begin
     Exec('taskkill', '/F /IM ABeNT.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;
+
+[UninstallDelete]
+; Löscht vollständig den AppData-Ordner, damit bei Re-Installation neue Standard-Prompts aktiv sind.
+Type: filesandordirs; Name: "{userappdata}\ABeNT";
