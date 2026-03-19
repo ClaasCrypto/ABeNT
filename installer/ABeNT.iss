@@ -56,7 +56,7 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
 begin
-  if (CurStep = ssInstall) or (CurStep = ssUninstall) then
+  if CurStep = ssInstall then
   begin
     Exec('taskkill', '/F /IM ABeNT.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
